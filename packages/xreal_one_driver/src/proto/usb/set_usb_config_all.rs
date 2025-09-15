@@ -1,0 +1,22 @@
+use crate::proto::usb::get_usb_config_all::UsbConfigList;
+use crate::proto::usb::{RequestArgs, UsbTransaction};
+use anyhow::Error;
+use std::borrow::Cow;
+
+pub struct SetUsbConfigAll;
+
+impl UsbTransaction for SetUsbConfigAll {
+    const COMMAND_ID: u8 = 0xD3;
+    type RequestArgs = SetUsbConfigAllRequest;
+    type Response = ();
+}
+
+pub struct SetUsbConfigAllRequest {
+    pub config: UsbConfigList,
+}
+
+impl RequestArgs for SetUsbConfigAllRequest {
+    fn as_bytes(&self) -> Result<Cow<[u8]>, Error> {
+        Ok(Cow::Owned(self.config.into_bytes().to_vec()))
+    }
+}
