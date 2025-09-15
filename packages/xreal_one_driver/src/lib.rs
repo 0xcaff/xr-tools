@@ -114,7 +114,7 @@ impl ControlMessageResponse {
     }
 
     pub fn data(&self) -> &[u8] {
-        &self.body[size_of::<ControlMessageHeader>()..self.header().fields.length as usize + 5]
+        &self.body[size_of::<ControlMessageHeader>()..self.header().fields.length as usize + offset_of!(ControlMessageHeader, fields)]
     }
 }
 
