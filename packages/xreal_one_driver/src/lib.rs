@@ -1,7 +1,12 @@
+mod proto;
+
 use anyhow::bail;
 use bytemuck::{Pod, Zeroable};
 use std::mem;
 use std::mem::offset_of;
+use crate::proto::usb::{RequestArgs, Response, UsbTransaction};
+use crate::proto::usb::get_camera_status::{GetCameraStatusRequest, GetCameraStatusTransaction};
+use crate::proto::usb::get_glasses_fw_version::{GetGlassesFwVersionRequestArgs, GetGlassesFwVersionTransaction};
 
 struct XREALOneDevice {
     device: hidapi::HidDevice,
@@ -14,7 +19,22 @@ impl XREALOneDevice {
         Ok(Self { device })
     }
 
-    pub fn send_message(
+    pub fn send_mesasge<Txn : UsbTransaction>(&self, request: Txn::RequestArgs) -> Result<Txn::Response, anyhow::Error> {
+        let mut data = [0u8; 1024];
+
+        let len = request.serialize_into(&mut data)?;
+
+        let response = self.send_message_raw(
+            Txn::COMMAND_ID,
+            &data[..len],
+        )?;
+
+        let response = Response::deserialize_from(&response.data())?;
+
+        Ok(response)
+    }
+
+    fn send_message_raw(
         &self,
         command_tag: u8,
         data: &[u8],
@@ -141,8 +161,11 @@ struct ControlMessageHeaderChecksummed {
 fn test() -> Result<(), anyhow::Error> {
     let api = hidapi::HidApi::new()?;
     let device = XREALOneDevice::open(&api)?;
-    // device.send_message(0xD3, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x01, 0x00])?;
-    device.send_message(0x26, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00])?;
+    // device.send_message_raw(0xD3, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x01, 0x00])?;
+    // let response = device.send_message_raw(0xD5, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x0])?;
+    // println!("{:?}", response.data());
+    let response = device.send_mesasge::<GetCameraStatusTransaction>(GetCameraStatusRequest)?;
+    println!("{:?}", response);
 
     Ok(())
 }
