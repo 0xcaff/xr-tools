@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "packages/xreal_one_driver",
+]
+resolver = "3"

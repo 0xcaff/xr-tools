@@ -1,0 +1,10 @@
+[package]
+name = "xreal_one_driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hidapi = "2.6.3"
+anyhow = "1.0.99"
+crc-adler = "0.1.1"
+bytemuck = { version = "1.23.2", features = ["derive"]}
