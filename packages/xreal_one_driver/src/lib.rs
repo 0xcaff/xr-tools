@@ -21,6 +21,8 @@ impl XREALOneDevice {
     ) -> Result<ControlMessageResponse, anyhow::Error> {
         let mut body = [0u8; 1024];
 
+        const REQUEST_ID: u32 = 0x0;
+
         {
             let outbound_packet = &mut body[..size_of::<ControlMessageHeader>() + data.len()];
 
@@ -31,7 +33,7 @@ impl XREALOneDevice {
                 header.magic = 0xFD;
                 header.fields.length =
                     (size_of::<ControlMessageHeaderChecksummed>() + data.len()) as u16;
-                header.fields.request_id = 0;
+                header.fields.request_id = REQUEST_ID;
                 header.fields.timestamp = 0;
                 header.fields.command = command_tag;
             }
@@ -90,7 +92,7 @@ impl XREALOneDevice {
         }
 
         let request_id = response_header.fields.request_id;
-        if request_id != 0x0 {
+        if request_id != REQUEST_ID {
             bail!(
                 "invalid response request id: {}, expected: {}",
                 request_id,
