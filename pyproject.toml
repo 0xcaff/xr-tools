@@ -1,0 +1,11 @@
+[project]
+name = "xr-tools"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python>=4.12.0.88",
+    "pupil-apriltags>=1.0.4.post11",
+    "rerun-sdk>=0.25.0",
+]
