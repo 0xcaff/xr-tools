@@ -4,6 +4,7 @@ import cv2
 from pupil_apriltags import Detector
 import rerun as rr
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 rr.init("april_tag_viewer", spawn=True)
 
@@ -17,7 +18,7 @@ detector = Detector(
     debug=0
 )
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 
 tag_size = 160 * 0.001 # 160mm
 
@@ -30,6 +31,21 @@ tag_points = np.array([
 
 with open('/Users/martin/Downloads/calibration.json', 'r') as file:
     data = json.load(file)
+
+def into_transform_matrix(p, q):
+    T = np.eye(4)
+    T[:3, :3] = R.from_quat(np.array([q[0], -q[1], -q[2], q[3]])).as_matrix()
+    T[:3, 3] = np.array(p)
+
+    return T
+
+T_imu_to_camera = into_transform_matrix(data['SLAM_camera']['device_1']['imu_p_cam'], data['SLAM_camera']['device_1']['imu_q_cam'])
+T_imu_display_left = into_transform_matrix(data['display']['target_p_left_display'], data['display']['target_q_left_display'])
+T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_display'], data['display']['target_q_right_display'])
+K_left_display = np.array(data['display']['k_left_display'], dtype=float).reshape(3, 3)
+K_right_display = np.array(data['display']['k_right_display'], dtype=float).reshape(3, 3)
+
+T_cam_to_right_display = T_imu_to_display_right @ T_imu_to_camera # T_imu_to_display_right @ np.linalg.inv(T_imu_to_camera)
 
 rgb_camera = data['RGB_camera']['device_1']
 c_x, c_y = rgb_camera['cc']
@@ -48,6 +64,8 @@ K_rgb_camera = np.array([
 distortion = np.array(rgb_camera["kc"], dtype=np.float64)
 
 slam_camera = data['SLAM_camera']
+
+cv2.namedWindow("AprilTag Viewer", cv2.WINDOW_NORMAL)
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -97,12 +115,39 @@ while cap.isOpened():
             ),
         )
 
-        strip = np.append(corners, corners[0:1], axis=0)  # Close the loop
+        T_right_from_tag = T_cam_to_right_display @ T
+        R_right_from_tag = T_right_from_tag[:3, :3]
+        t_right_from_tag = T_right_from_tag[:3, 3].reshape(3, 1)
+
+        rvec_right, _ = cv2.Rodrigues(R_right_from_tag)
+
+        # todo: apply distortion
+
+        uv_right, _ = cv2.projectPoints(
+            tag_points,
+            rvec_right,
+            t_right_from_tag,
+            K_right_display,
+            None,
+        )
+        uv_right = uv_right.reshape(-1, 2).astype(np.int32)
+
+#         frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+
+        cv2.polylines(frame, [uv_right], True, (0, 255, 0), 2)
+
+        strip = np.append(corners, corners[0:1], axis=0)
         positions.append(strip.tolist())
 
     if positions:
         num_dets = len(positions)
         rr.log("video/tags", rr.LineStrips2D(positions))
+
+    cv2.imshow("AprilTag Viewer", frame)
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        break
 
 # Release resources
 cap.release()
