@@ -45,7 +45,7 @@ T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_d
 K_left_display = np.array(data['display']['k_left_display'], dtype=float).reshape(3, 3)
 K_right_display = np.array(data['display']['k_right_display'], dtype=float).reshape(3, 3)
 
-T_cam_to_right_display = T_imu_to_display_right @ T_imu_to_camera # T_imu_to_display_right @ np.linalg.inv(T_imu_to_camera)
+T_cam_to_right_display = T_imu_to_display_right @ T_imu_to_camera
 
 rgb_camera = data['RGB_camera']['device_1']
 c_x, c_y = rgb_camera['cc']
@@ -61,9 +61,33 @@ K_rgb_camera = np.array([
     [0,  0,  1]
 ], dtype=np.float64)
 
-distortion = np.array(rgb_camera["kc"], dtype=np.float64)
+camera_distortion = np.array(rgb_camera["kc"], dtype=np.float64)
 
 slam_camera = data['SLAM_camera']
+
+def build_display_distortion_map(values):
+    display_distortion = np.asarray(values, dtype=np.float32).reshape(-1, 4)
+
+    U, V, Xp, Yp = display_distortion[:, 0], display_distortion[:, 1], display_distortion[:, 2], display_distortion[:, 3]
+    N = display_distortion.shape[0]
+
+    def unique_sorted(vals, tol_decimals=6):
+        vals_r = np.round(vals.astype(np.float64), tol_decimals)
+        uniq = np.unique(vals_r)
+        return len(uniq)
+
+    nx = unique_sorted(U)
+    ny = unique_sorted(V)
+
+    Xp_grid = Xp.reshape(ny, nx)
+    Yp_grid = Yp.reshape(ny, nx)
+
+    mapX = cv2.resize(Xp_grid, (1920, 1080), interpolation=cv2.INTER_CUBIC).astype(np.float32)
+    mapY = cv2.resize(Yp_grid, (1920, 1080), interpolation=cv2.INTER_CUBIC).astype(np.float32)
+
+    return mapX, mapY
+
+mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display']['data'])
 
 cv2.namedWindow("AprilTag Viewer", cv2.WINDOW_NORMAL)
 
@@ -83,7 +107,7 @@ while cap.isOpened():
         corners = det.corners
 
         ok, rvec, tvec = cv2.solvePnP(
-            tag_points, det.corners, K_rgb_camera, distortion,
+            tag_points, det.corners, K_rgb_camera, camera_distortion,
             flags=cv2.SOLVEPNP_IPPE_SQUARE
         )
         assert ok
@@ -142,6 +166,13 @@ while cap.isOpened():
     if positions:
         num_dets = len(positions)
         rr.log("video/tags", rr.LineStrips2D(positions))
+
+    frame = cv2.remap(
+        frame, mapX, mapY,
+        interpolation=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
 
     cv2.imshow("AprilTag Viewer", frame)
 

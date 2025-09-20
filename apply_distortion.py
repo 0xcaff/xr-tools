@@ -9,7 +9,6 @@ with open('/Users/martin/Downloads/calibration.json', 'r') as f:
 arr = np.asarray(data["display_distortion"]["right_display"]["data"], dtype=np.float32).reshape(-1, 4)
 
 U, V, Xp, Yp = arr[:, 0], arr[:, 1], arr[:, 2], arr[:, 3]
-N = arr.shape[0]
 
 def unique_sorted(vals, tol_decimals=6):
     vals_r = np.round(vals.astype(np.float64), tol_decimals)
