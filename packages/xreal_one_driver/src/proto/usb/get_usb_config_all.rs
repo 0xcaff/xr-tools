@@ -12,6 +12,10 @@ impl UsbTransaction for GetUsbConfigAll {
 #[bitfield(bits = 32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UsbConfigList {
+    // todo: make this an enum
+    // 2 = disable
+    // 1 = enable
+    // 0 = do nothing
     pub ncm: modular_bitfield::specifiers::B2,
     pub ecm: modular_bitfield::specifiers::B2,
     pub uac: modular_bitfield::specifiers::B2,

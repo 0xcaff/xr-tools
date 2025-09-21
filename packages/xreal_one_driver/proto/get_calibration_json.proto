@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package proto;
+
+message GetCalibrationJsonValue {
+  string data = 2;
+}
+
+message GetCalibrationJsonResponse {
+  GetCalibrationJsonValue value = 4;
+}
