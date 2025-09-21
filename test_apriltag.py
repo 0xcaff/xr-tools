@@ -18,7 +18,7 @@ detector = Detector(
     debug=0
 )
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 
 tag_size = 160 * 0.001 # 160mm
 
@@ -32,38 +32,28 @@ tag_points = np.array([
 with open('/Users/martin/Downloads/calibration.json', 'r') as file:
     data = json.load(file)
 
-def into_transform_matrix(p, q):
+def make_calibration_matrix():
+    S = np.eye(4, dtype=np.float64)
+    S[:3, :3] = np.array([
+        [1, 0, 0],  # +X stays +X
+        [0, 0, -1],  # +Y(front) → +Z(forward)
+        [0, 1, 0],  # +Z(up)    → +Y(down)
+    ], dtype=np.float64)
+
+    return S
+
+T_calibration_to_optical = make_calibration_matrix()
+
+def into_transform_matrix(p, q, convention):
     T = np.eye(4)
-    T[:3, :3] = R.from_quat(np.array([q[0], -q[1], -q[2], q[3]])).as_matrix()
+    if convention == "jpl":
+        T[:3, :3] = R.from_quat(np.array([-q[0], -q[1], -q[2], q[3]])).as_matrix()
+    elif convention == "hamilton":
+        T[:3, :3] = R.from_quat(np.array([q[0],  q[1],  q[2], q[3]])).as_matrix()
+
     T[:3, 3] = np.array(p)
 
-    return T
-
-T_imu_to_camera = into_transform_matrix(data['SLAM_camera']['device_1']['imu_p_cam'], data['SLAM_camera']['device_1']['imu_q_cam'])
-T_imu_display_left = into_transform_matrix(data['display']['target_p_left_display'], data['display']['target_q_left_display'])
-T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_display'], data['display']['target_q_right_display'])
-K_left_display = np.array(data['display']['k_left_display'], dtype=float).reshape(3, 3)
-K_right_display = np.array(data['display']['k_right_display'], dtype=float).reshape(3, 3)
-
-T_cam_to_right_display = T_imu_to_display_right @ T_imu_to_camera
-
-rgb_camera = data['RGB_camera']['device_1']
-c_x, c_y = rgb_camera['cc']
-f_x, f_y = rgb_camera['fc']
-r_x, r_y = rgb_camera['resolution']
-
-c_x = c_x / r_x * 1920.0
-c_y = c_y / r_y * 1080.0
-
-K_rgb_camera = np.array([
-    [f_x, 0, c_x],
-    [0, f_y, c_y],
-    [0,  0,  1]
-], dtype=np.float64)
-
-camera_distortion = np.array(rgb_camera["kc"], dtype=np.float64)
-
-slam_camera = data['SLAM_camera']
+    return T_calibration_to_optical @ T @ T_calibration_to_optical.T
 
 def build_display_distortion_map(data):
     display_distortion = np.asarray(data['data'], dtype=np.float32).reshape(-1, 4)
@@ -81,7 +71,30 @@ def build_display_distortion_map(data):
 
     return mapX, mapY
 
+T_imu_to_camera = into_transform_matrix(data['SLAM_camera']['device_1']['imu_p_cam'], data['SLAM_camera']['device_1']['imu_q_cam'], "jpl")
+T_imu_to_display_left = into_transform_matrix(data['display']['target_p_left_display'], data['display']['target_q_left_display'], "hamilton")
+T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_display'], data['display']['target_q_right_display'], "hamilton")
+K_left_display = np.array(data['display']['k_left_display'], dtype=float).reshape(3, 3)
+K_right_display = np.array(data['display']['k_right_display'], dtype=float).reshape(3, 3)
+
+T_cam_to_right_display = np.linalg.inv(T_imu_to_display_right) @ T_imu_to_camera
 mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display'])
+
+rgb_camera = data['RGB_camera']['device_1']
+c_x, c_y = rgb_camera['cc']
+f_x, f_y = rgb_camera['fc']
+r_x, r_y = rgb_camera['resolution']
+
+c_x = c_x / r_x * 1920.0
+c_y = c_y / r_y * 1080.0
+
+K_rgb_camera = np.array([
+    [f_x, 0, c_x],
+    [0, f_y, c_y],
+    [0,  0,  1]
+], dtype=np.float64)
+
+camera_distortion = np.array(rgb_camera["kc"], dtype=np.float64)
 
 cv2.namedWindow("AprilTag Viewer", cv2.WINDOW_NORMAL)
 
@@ -141,8 +154,6 @@ while cap.isOpened():
 
         rvec_right, _ = cv2.Rodrigues(R_right_from_tag)
 
-        # todo: apply distortion
-
         uv_right, _ = cv2.projectPoints(
             tag_points,
             rvec_right,
@@ -151,7 +162,6 @@ while cap.isOpened():
             None,
         )
         uv_right = uv_right.reshape(-1, 2).astype(np.int32)
-
 
         cv2.polylines(outframe, [uv_right], True, (0, 255, 0), 2)
 
