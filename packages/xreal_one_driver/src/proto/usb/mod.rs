@@ -1,7 +1,8 @@
-use anyhow::{bail, Error};
+use anyhow::{bail};
 use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 use std::mem::offset_of;
+use protobuf::Message;
 
 pub mod get_camera_status;
 pub mod get_glasses_fw_version;
@@ -26,11 +27,20 @@ pub trait RequestArgs {
     }
 }
 
+impl <T: Message> RequestArgs for T {
+    fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error> {
+        let bytes = self.write_to_bytes()?;
+        Ok(Cow::Owned(bytes))
+    }
+}
+
 pub trait Response: Sized {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error>;
 }
 
-impl RequestArgs for () {
+pub struct Empty;
+
+impl RequestArgs for Empty {
     fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error> {
         Ok(Cow::Borrowed(&[]))
     }
@@ -40,11 +50,11 @@ pub trait ConstRequestArgs {
     const VALUE: &'static [u8];
 }
 
-impl <T: ConstRequestArgs> RequestArgs for T {
-    fn as_bytes(&self) -> Result<Cow<[u8]>, Error> {
-        Ok(Cow::Borrowed(T::VALUE))
-    }
-}
+// impl <T: ConstRequestArgs> RequestArgs for T {
+//     fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error> {
+//         Ok(Cow::Borrowed(T::VALUE))
+//     }
+// }
 
 impl Response for () {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {

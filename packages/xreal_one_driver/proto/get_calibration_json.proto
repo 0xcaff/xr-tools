@@ -1,11 +1,15 @@
 syntax = "proto3";
 
-package proto;
+package get_calibration_json;
 
-message GetCalibrationJsonValue {
+message Request {
+  bytes value = 3;
+}
+
+message JsonValue {
   string data = 2;
 }
 
-message GetCalibrationJsonResponse {
-  GetCalibrationJsonValue value = 4;
+message Response {
+  JsonValue value = 4;
 }

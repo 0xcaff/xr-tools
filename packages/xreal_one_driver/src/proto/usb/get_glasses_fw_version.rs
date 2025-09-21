@@ -1,4 +1,4 @@
-use crate::proto::usb::{Response, UsbTransaction};
+use crate::proto::usb::{Empty, Response, UsbTransaction};
 use anyhow::Error;
 
 // todo: there are other firmware version read commands (0x18 and 0x13)
@@ -7,7 +7,7 @@ pub struct GetGlassesFwVersionTransaction;
 
 impl UsbTransaction for GetGlassesFwVersionTransaction {
     const COMMAND_ID: u8 = 0x26;
-    type RequestArgs = ();
+    type RequestArgs = Empty;
     type Response = GetGlassesFwVersionResponse;
 }
 

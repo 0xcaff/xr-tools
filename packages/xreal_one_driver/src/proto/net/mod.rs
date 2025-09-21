@@ -1,14 +1,17 @@
 mod get_calibration_json;
 mod protos;
+mod set_display_brightness;
+mod set_electrochromic_dimmer;
 
-use std::{fs, io};
+use crate::proto::net::set_display_brightness::SetDisplayBrightness;
+use crate::proto::usb::RequestArgs;
+use anyhow::{bail};
+use bytemuck::{Pod, Zeroable};
+use protobuf::{Message, MessageField};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use anyhow::{bail, Error};
-use bytemuck::{Pod, Zeroable};
-use protobuf::Message;
-use crate::proto::net::get_calibration_json::{GetCalibrationJson, GetCalibrationJsonRequest};
-use crate::proto::usb::{RequestArgs};
+use std::io;
+use crate::proto::net::set_electrochromic_dimmer::SetElectrochromicDimmer;
 
 trait NetworkTransaction {
     const MAGIC: [u8; 2];
@@ -21,7 +24,7 @@ pub trait Response: Sized {
 }
 
 impl <T> Response for T where T: Message {
-    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, Error> {
+    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
         Ok(T::parse_from_bytes(&buffer)?)
     }
 }
@@ -100,8 +103,16 @@ impl NetworkDevice {
 #[test]
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
-    let response = device.send_message::<GetCalibrationJson>(GetCalibrationJsonRequest)?;
-    fs::write("./calibration.json", &response.value.data)?;
+    let req = protos::set_electrochromic_dimmer::Request {
+        value: MessageField::some(protos::set_electrochromic_dimmer::Value {
+            dimmer_level: 2,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let response = device.send_message::<SetElectrochromicDimmer>(req)?;
+    // fs::write("./calibration.json", &response.value.data)?;
 
     Ok(())
 }

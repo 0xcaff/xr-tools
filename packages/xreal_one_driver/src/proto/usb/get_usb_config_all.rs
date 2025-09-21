@@ -1,11 +1,11 @@
-use crate::proto::usb::{Response, UsbTransaction};
+use crate::proto::usb::{Empty, Response, UsbTransaction};
 use modular_bitfield::bitfield;
 
 pub struct GetUsbConfigAll;
 
 impl UsbTransaction for GetUsbConfigAll {
     const COMMAND_ID: u8 = 0xD2;
-    type RequestArgs = ();
+    type RequestArgs = Empty;
     type Response = GetUsbConfigAllResponse;
 }
 

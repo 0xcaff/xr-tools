@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package set_display_brightness;
+
+message Request {
+  Value value = 3;
+}
+
+message Value {
+  // Value from 0-9
+  int32 brightness_level = 1;
+}
+
+message Response {
+  bytes value = 4;
+}
