@@ -18,7 +18,7 @@ detector = Detector(
     debug=0
 )
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 
 tag_size = 160 * 0.001 # 160mm
 
@@ -65,29 +65,23 @@ camera_distortion = np.array(rgb_camera["kc"], dtype=np.float64)
 
 slam_camera = data['SLAM_camera']
 
-def build_display_distortion_map(values):
-    display_distortion = np.asarray(values, dtype=np.float32).reshape(-1, 4)
+def build_display_distortion_map(data):
+    display_distortion = np.asarray(data['data'], dtype=np.float32).reshape(-1, 4)
 
     U, V, Xp, Yp = display_distortion[:, 0], display_distortion[:, 1], display_distortion[:, 2], display_distortion[:, 3]
-    N = display_distortion.shape[0]
 
-    def unique_sorted(vals, tol_decimals=6):
-        vals_r = np.round(vals.astype(np.float64), tol_decimals)
-        uniq = np.unique(vals_r)
-        return len(uniq)
+    rows = data['num_row']
+    cols = data['num_col']
 
-    nx = unique_sorted(U)
-    ny = unique_sorted(V)
-
-    Xp_grid = Xp.reshape(ny, nx)
-    Yp_grid = Yp.reshape(ny, nx)
+    Xp_grid = Xp.reshape(rows, cols)
+    Yp_grid = Yp.reshape(rows, cols)
 
     mapX = cv2.resize(Xp_grid, (1920, 1080), interpolation=cv2.INTER_CUBIC).astype(np.float32)
     mapY = cv2.resize(Yp_grid, (1920, 1080), interpolation=cv2.INTER_CUBIC).astype(np.float32)
 
     return mapX, mapY
 
-mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display']['data'])
+mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display'])
 
 cv2.namedWindow("AprilTag Viewer", cv2.WINDOW_NORMAL)
 
@@ -101,6 +95,8 @@ while cap.isOpened():
     detections = detector.detect(gray)
 
     rr.log("video/frame", rr.Image(frame))
+
+    outframe = np.zeros((1080, 1920, 3), dtype=np.uint8)
 
     positions = []
     for det in detections:
@@ -156,9 +152,8 @@ while cap.isOpened():
         )
         uv_right = uv_right.reshape(-1, 2).astype(np.int32)
 
-#         frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
 
-        cv2.polylines(frame, [uv_right], True, (0, 255, 0), 2)
+        cv2.polylines(outframe, [uv_right], True, (0, 255, 0), 2)
 
         strip = np.append(corners, corners[0:1], axis=0)
         positions.append(strip.tolist())
@@ -167,14 +162,14 @@ while cap.isOpened():
         num_dets = len(positions)
         rr.log("video/tags", rr.LineStrips2D(positions))
 
-    frame = cv2.remap(
-        frame, mapX, mapY,
+    outframe = cv2.remap(
+        outframe, mapX, mapY,
         interpolation=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0
     )
 
-    cv2.imshow("AprilTag Viewer", frame)
+    cv2.imshow("AprilTag Viewer", outframe)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
