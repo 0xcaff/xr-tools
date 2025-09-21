@@ -5,6 +5,7 @@ from pupil_apriltags import Detector
 import rerun as rr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import math
 
 rr.init("april_tag_viewer", spawn=True)
 
@@ -18,7 +19,7 @@ detector = Detector(
     debug=0
 )
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 
 tag_size = 160 * 0.001 # 160mm
 
@@ -71,11 +72,40 @@ def build_display_distortion_map(data):
 
     return mapX, mapY
 
+screen_size_diagonal_in = 470.0
+screen_distance_m = 10.0
+
+aspect_w, aspect_h = 16, 9
+k = math.hypot(aspect_w, aspect_h)
+width_in = screen_size_diagonal_in * (aspect_w / k)
+height_in = screen_size_diagonal_in * (aspect_h / k)
+width_m = width_in * 0.0254
+height_m = height_in * 0.0254
+img_w_px, img_h_px = 1920, 1080
+fx = img_w_px * screen_distance_m / width_m
+fy = img_h_px * screen_distance_m / height_m
+cx = img_w_px / 2.0
+cy = img_h_px / 2.0
+
+def load_display_matrix(data):
+    K = np.array(data, dtype=float).reshape(3, 3)
+
+    K[0, 2] = K[0, 2] - math.fabs(K[0, 2] - cx) * 5
+
+    # todo: this offset seems to change based on the camera position
+    K[1, 2] = K[1, 2] + math.fabs(K[1, 2] - cy) * 100
+    K[0, 0] = fx
+    K[1, 1] = fy
+
+    print(K)
+
+    return K
+
 T_imu_to_camera = into_transform_matrix(data['SLAM_camera']['device_1']['imu_p_cam'], data['SLAM_camera']['device_1']['imu_q_cam'], "jpl")
 T_imu_to_display_left = into_transform_matrix(data['display']['target_p_left_display'], data['display']['target_q_left_display'], "hamilton")
 T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_display'], data['display']['target_q_right_display'], "hamilton")
-K_left_display = np.array(data['display']['k_left_display'], dtype=float).reshape(3, 3)
-K_right_display = np.array(data['display']['k_right_display'], dtype=float).reshape(3, 3)
+K_left_display = load_display_matrix(data['display']['k_left_display'])
+K_right_display = load_display_matrix(data['display']['k_right_display'])
 
 T_cam_to_right_display = np.linalg.inv(T_imu_to_display_right) @ T_imu_to_camera
 mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display'])
