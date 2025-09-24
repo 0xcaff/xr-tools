@@ -87,15 +87,16 @@ fy = img_h_px * screen_distance_m / height_m
 cx = img_w_px / 2.0
 cy = img_h_px / 2.0
 
-def load_display_matrix(data):
+def load_display_matrix(data, side):
     K = np.array(data, dtype=float).reshape(3, 3)
 
-    K[0, 2] = K[0, 2] - math.fabs(K[0, 2] - cx) * 5
+    if side == "right":
+        K[0, 2] = K[0, 2] - math.fabs(K[0, 2] - cx) * 5
 
-    # todo: this offset seems to change based on the camera position
-    K[1, 2] = K[1, 2] + math.fabs(K[1, 2] - cy) * 100
-    K[0, 0] = fx
-    K[1, 1] = fy
+        # todo: this offset seems to change based on the camera position
+        K[1, 2] = K[1, 2] + math.fabs(K[1, 2] - cy) * 100
+        K[0, 0] = fx
+        K[1, 1] = fy
 
     print(K)
 
@@ -104,11 +105,13 @@ def load_display_matrix(data):
 T_imu_to_camera = into_transform_matrix(data['SLAM_camera']['device_1']['imu_p_cam'], data['SLAM_camera']['device_1']['imu_q_cam'], "jpl")
 T_imu_to_display_left = into_transform_matrix(data['display']['target_p_left_display'], data['display']['target_q_left_display'], "hamilton")
 T_imu_to_display_right = into_transform_matrix(data['display']['target_p_right_display'], data['display']['target_q_right_display'], "hamilton")
-K_left_display = load_display_matrix(data['display']['k_left_display'])
-K_right_display = load_display_matrix(data['display']['k_right_display'])
+K_left_display = load_display_matrix(data['display']['k_left_display'], 'left')
+K_right_display = load_display_matrix(data['display']['k_right_display'], 'right')
 
 T_cam_to_right_display = np.linalg.inv(T_imu_to_display_right) @ T_imu_to_camera
-mapX, mapY = build_display_distortion_map(data['display_distortion']['right_display'])
+T_cam_to_left_display = np.linalg.inv(T_imu_to_display_left) @ T_imu_to_camera
+mapX_right, mapY_right = build_display_distortion_map(data['display_distortion']['right_display'])
+mapX_left, mapY_left = build_display_distortion_map(data['display_distortion']['left_display'])
 
 rgb_camera = data['RGB_camera']['device_1']
 c_x, c_y = rgb_camera['cc']
@@ -139,7 +142,8 @@ while cap.isOpened():
 
     rr.log("video/frame", rr.Image(frame))
 
-    outframe = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    outframe_right = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    outframe_left = np.zeros((1080, 1920, 3), dtype=np.uint8)
 
     positions = []
     for det in detections:
@@ -193,7 +197,24 @@ while cap.isOpened():
         )
         uv_right = uv_right.reshape(-1, 2).astype(np.int32)
 
-        cv2.polylines(outframe, [uv_right], True, (0, 255, 0), 2)
+        cv2.polylines(outframe_right, [uv_right], True, (0, 255, 0), 2)
+
+        T_left_from_tag = T_cam_to_left_display @ T
+        R_left_from_tag = T_left_from_tag[:3, :3]
+        t_left_from_tag = T_left_from_tag[:3, 3].reshape(3, 1)
+
+        rvec_left, _ = cv2.Rodrigues(R_left_from_tag)
+
+        uv_left, _ = cv2.projectPoints(
+            tag_points,
+            rvec_left,
+            t_left_from_tag,
+            K_left_display,
+            None,
+        )
+        uv_left = uv_left.reshape(-1, 2).astype(np.int32)
+
+        cv2.polylines(outframe_left, [uv_left], True, (0, 255, 0), 2)
 
         strip = np.append(corners, corners[0:1], axis=0)
         positions.append(strip.tolist())
@@ -202,12 +223,21 @@ while cap.isOpened():
         num_dets = len(positions)
         rr.log("video/tags", rr.LineStrips2D(positions))
 
-    outframe = cv2.remap(
-        outframe, mapX, mapY,
+    outframe_right = cv2.remap(
+        outframe_right, mapX_right, mapY_right,
         interpolation=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0
     )
+
+    outframe_left = cv2.remap(
+        outframe_left, mapX_left, mapY_left,
+        interpolation=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
+
+    outframe = cv2.hconcat([outframe_left, outframe_right])
 
     cv2.imshow("AprilTag Viewer", outframe)
 
