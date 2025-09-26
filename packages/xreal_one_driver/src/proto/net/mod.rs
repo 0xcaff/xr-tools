@@ -1,17 +1,20 @@
-mod get_calibration_json;
+mod get_config;
 mod protos;
 mod set_display_brightness;
 mod set_electrochromic_dimmer;
+mod glasses_get_id;
+mod glasses_get_sw_version;
+mod glasses_get_dsp_version;
+mod glasses_set_scene_mode;
 
-use crate::proto::net::set_display_brightness::SetDisplayBrightness;
+use crate::proto::net::glasses_set_scene_mode::GlassesSetSceneMode;
 use crate::proto::usb::RequestArgs;
-use anyhow::{bail};
+use anyhow::bail;
 use bytemuck::{Pod, Zeroable};
 use protobuf::{Message, MessageField};
+use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::io;
-use crate::proto::net::set_electrochromic_dimmer::SetElectrochromicDimmer;
 
 trait NetworkTransaction {
     const MAGIC: [u8; 2];
@@ -71,6 +74,7 @@ impl NetworkDevice {
 
     pub fn send_message<T: NetworkTransaction>(&mut self, request: T::RequestArgs) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
+        println!("{:#x?}", body);
 
         let tx_id = 1;
 
@@ -103,15 +107,18 @@ impl NetworkDevice {
 #[test]
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
-    let req = protos::set_electrochromic_dimmer::Request {
-        value: MessageField::some(protos::set_electrochromic_dimmer::Value {
-            dimmer_level: 2,
+    let req = protos::set_scene_mode::Request {
+        // todo: this one seems to disable the controls and enable the controls
+        value: MessageField::some(protos::set_scene_mode::Value {
+            value: 1,
             ..Default::default()
         }),
         ..Default::default()
     };
 
-    let response = device.send_message::<SetElectrochromicDimmer>(req)?;
+    let response = device.send_message::<GlassesSetSceneMode>(req)?;
+    println!("{:#?}", response);
+    // println!("{}", String::from_utf8(response.0)?);
     // fs::write("./calibration.json", &response.value.data)?;
 
     Ok(())

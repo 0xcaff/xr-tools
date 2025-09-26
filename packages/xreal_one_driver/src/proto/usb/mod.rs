@@ -124,8 +124,6 @@ impl UsbDevice {
             );
             header.checksum = checksum;
 
-            println!("{:x?}", outbound_packet);
-
             let bytes_written = self.device.write(&outbound_packet)?;
             if bytes_written != outbound_packet.len() {
                 bail!(
