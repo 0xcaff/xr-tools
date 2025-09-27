@@ -6,15 +6,33 @@ mod glasses_get_id;
 mod glasses_get_sw_version;
 mod glasses_get_dsp_version;
 mod glasses_set_scene_mode;
+mod glasses_dp;
 
-use crate::proto::net::glasses_set_scene_mode::GlassesSetSceneMode;
+use crate::proto::net::glasses_dp::GlassesDp;
 use crate::proto::usb::RequestArgs;
-use anyhow::bail;
 use bytemuck::{Pod, Zeroable};
-use protobuf::{Message, MessageField};
+use protobuf::Message;
+use std::borrow::Cow;
 use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+
+#[derive(Debug)]
+pub struct RawResponse(pub Vec<u8>);
+
+impl Response for RawResponse {
+    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
+        Ok(Self(buffer))
+    }
+}
+
+pub struct RawRequest(pub &'static [u8]);
+
+impl RequestArgs for RawRequest {
+    fn as_bytes(&self) -> Result<Cow<'_, [u8]>, anyhow::Error> {
+        Ok(Cow::Borrowed(self.0))
+    }
+}
 
 trait NetworkTransaction {
     const MAGIC: [u8; 2];
@@ -35,14 +53,14 @@ impl <T> Response for T where T: Message {
 struct NetworkMessageHeader {
     magic: [u8; 2],
     length: u32,
-    transaction_id: u32,
+    // transaction_id: u32,
 }
 
 impl NetworkMessageHeader {
     pub fn write(&self, mut writer: impl Write) -> Result<(), io::Error> {
         writer.write_all(&self.magic)?;
         writer.write_all(&self.length.to_be_bytes())?;
-        writer.write_all(&self.transaction_id.to_be_bytes())?;
+        // writer.write_all(&self.transaction_id.to_be_bytes())?;
 
         Ok(())
     }
@@ -51,12 +69,12 @@ impl NetworkMessageHeader {
         let mut magic = [0u8; 2];
         magic.copy_from_slice(&buffer[0..2]);
         let length = u32::from_be_bytes([buffer[2], buffer[3], buffer[4], buffer[5]]);
-        let transaction_id = u32::from_be_bytes([buffer[6], buffer[7], buffer[8], buffer[9]]);
+        // let transaction_id = u32::from_be_bytes([buffer[6], buffer[7], buffer[8], buffer[9]]);
 
         Ok(Self {
             magic,
             length,
-            transaction_id,
+            // transaction_id,
         })
     }
 }
@@ -81,7 +99,7 @@ impl NetworkDevice {
         let header = NetworkMessageHeader {
             magic: T::MAGIC.clone(),
             length: body.len() as u32 + 4,
-            transaction_id: tx_id | 0x80000000,
+            // transaction_id: tx_id | 0x80000000,
         };
 
         header.write(&mut self.connection)?;
@@ -92,10 +110,10 @@ impl NetworkDevice {
 
         let header = NetworkMessageHeader::from_bytes(&header)?;
 
-        if header.transaction_id != tx_id {
-            let transaction_id = header.transaction_id;
-            bail!("invalid transaction id, got {}, expected: {}", tx_id, transaction_id);
-        }
+        // if header.transaction_id != tx_id {
+        //     let transaction_id = header.transaction_id;
+        //     bail!("invalid transaction id, got {}, expected: {}", tx_id, transaction_id);
+        // }
 
         let mut body = vec![0u8; (header.length - 4) as usize];
         self.connection.read_exact(&mut body)?;
@@ -107,16 +125,15 @@ impl NetworkDevice {
 #[test]
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
-    let req = protos::set_scene_mode::Request {
-        // todo: this one seems to disable the controls and enable the controls
-        value: MessageField::some(protos::set_scene_mode::Value {
-            value: 1,
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
 
-    let response = device.send_message::<GlassesSetSceneMode>(req)?;
+    let response = device.send_message::<GlassesDp>(RawRequest(&[
+        0x01, 0xc6, 0xf4, 0xaa, 0x7a, 0x3d, 0x51, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00
+    ]))?;
+
     println!("{:#?}", response);
     // println!("{}", String::from_utf8(response.0)?);
     // fs::write("./calibration.json", &response.value.data)?;

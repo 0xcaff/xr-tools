@@ -1,9 +1,9 @@
 use crate::proto::usb::{Empty, Response, UsbTransaction};
 use anyhow::{anyhow, Error};
 
-pub struct GetCameraStatusTransaction;
+pub struct GetCameraStatus;
 
-impl UsbTransaction for GetCameraStatusTransaction {
+impl UsbTransaction for GetCameraStatus {
     const COMMAND_ID: u8 = 0xD5;
     type RequestArgs = Empty;
     type Response = GetCameraStatusResponse;

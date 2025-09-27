@@ -8,9 +8,11 @@ pub mod get_camera_status;
 pub mod get_glasses_fw_version;
 pub mod get_usb_config_all;
 pub mod set_usb_config_all;
+pub mod get_internal_code;
 
 pub trait UsbTransaction {
     const COMMAND_ID: u8;
+    const UNKONWN_VALUES: [u8; 6] = [0u8; 6];
 
     type RequestArgs: RequestArgs;
     type Response: Response;
@@ -84,7 +86,7 @@ impl UsbDevice {
 
         let len = request.serialize_into(&mut data)?;
 
-        let response = self.send_message_raw(Txn::COMMAND_ID, &data[..len])?;
+        let response = self.send_message_raw(Txn::COMMAND_ID, &data[..len], Txn::UNKONWN_VALUES)?;
 
         let response = Response::deserialize_from(&response.data())?;
 
@@ -95,6 +97,7 @@ impl UsbDevice {
         &self,
         command_tag: u8,
         data: &[u8],
+        unknown: [u8; 6],
     ) -> Result<ControlMessageResponse, anyhow::Error> {
         let mut body = [0u8; 1024];
 
@@ -113,6 +116,7 @@ impl UsbDevice {
                 header.fields.request_id = REQUEST_ID;
                 header.fields.timestamp = 0;
                 header.fields.command = command_tag;
+                header.fields.unknown = unknown;
             }
 
             outbound_packet[size_of::<ControlMessageHeader>()..].copy_from_slice(data);
@@ -215,6 +219,5 @@ struct ControlMessageHeaderChecksummed {
     request_id: u32,
     timestamp: u32,
     command: u8,
-    unknown_1: u32,
-    unknown_2: u16,
+    unknown: [u8; 6],
 }
