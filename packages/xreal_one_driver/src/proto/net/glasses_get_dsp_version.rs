@@ -1,5 +1,4 @@
-use anyhow::Error;
-use crate::proto::net::{protos, NetworkTransaction, Response};
+use crate::proto::net::{protos, NetworkTransaction};
 
 pub struct GlassesGetDspVersion;
 

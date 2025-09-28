@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package dp_get_current_edid_bsp;
+
+message Request {
+  SetValue value = 3;
+}
+
+message SetValue {
+  uint32 data = 1;
+}
+
+message Response {
+  GetValue value = 4;
+}
+
+message GetValue {
+  uint32 data = 2;
+}
+

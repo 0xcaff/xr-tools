@@ -5,17 +5,19 @@ mod set_electrochromic_dimmer;
 mod glasses_get_id;
 mod glasses_get_sw_version;
 mod glasses_get_dsp_version;
-mod glasses_set_scene_mode;
+mod display_stop_osd_render;
 mod glasses_dp;
+mod dp_get_current_edid_dsp;
+mod dp_set_current_edid_dsp;
 
-use crate::proto::net::glasses_dp::GlassesDp;
 use crate::proto::usb::RequestArgs;
-use bytemuck::{Pod, Zeroable};
-use protobuf::Message;
+use protobuf::{Message, MessageField};
 use std::borrow::Cow;
 use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use crate::proto::net::dp_get_current_edid_dsp::DpGetCurrentEdidDsp;
+use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -53,14 +55,14 @@ impl <T> Response for T where T: Message {
 struct NetworkMessageHeader {
     magic: [u8; 2],
     length: u32,
-    // transaction_id: u32,
+    transaction_id: u32,
 }
 
 impl NetworkMessageHeader {
     pub fn write(&self, mut writer: impl Write) -> Result<(), io::Error> {
         writer.write_all(&self.magic)?;
         writer.write_all(&self.length.to_be_bytes())?;
-        // writer.write_all(&self.transaction_id.to_be_bytes())?;
+        writer.write_all(&self.transaction_id.to_be_bytes())?;
 
         Ok(())
     }
@@ -69,12 +71,12 @@ impl NetworkMessageHeader {
         let mut magic = [0u8; 2];
         magic.copy_from_slice(&buffer[0..2]);
         let length = u32::from_be_bytes([buffer[2], buffer[3], buffer[4], buffer[5]]);
-        // let transaction_id = u32::from_be_bytes([buffer[6], buffer[7], buffer[8], buffer[9]]);
+        let transaction_id = u32::from_be_bytes([buffer[6], buffer[7], buffer[8], buffer[9]]);
 
         Ok(Self {
             magic,
             length,
-            // transaction_id,
+            transaction_id,
         })
     }
 }
@@ -99,7 +101,7 @@ impl NetworkDevice {
         let header = NetworkMessageHeader {
             magic: T::MAGIC.clone(),
             length: body.len() as u32 + 4,
-            // transaction_id: tx_id | 0x80000000,
+            transaction_id: tx_id | 0x80000000,
         };
 
         header.write(&mut self.connection)?;
@@ -126,13 +128,13 @@ impl NetworkDevice {
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
 
-    let response = device.send_message::<GlassesDp>(RawRequest(&[
-        0x01, 0xc6, 0xf4, 0xaa, 0x7a, 0x3d, 0x51, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00
-    ]))?;
+    let response = device.send_message::<DpSetCurrentEdidDsp>(protos::dp_get_current_edid_bsp::Request {
+        value: MessageField::some(protos::dp_get_current_edid_bsp::SetValue {
+            data: 5,
+            ..Default::default()
+        }),
+        ..Default::default()
+    })?;
 
     println!("{:#?}", response);
     // println!("{}", String::from_utf8(response.0)?);

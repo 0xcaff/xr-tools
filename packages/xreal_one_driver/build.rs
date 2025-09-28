@@ -13,10 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .cargo_out_dir("protos")
         .run_from_script();
 
-    // Rebuild on any .proto change
-    for p in &protos_abs {
-        println!("cargo:rerun-if-changed={}", p.display());
-    }
+    println!("cargo:rerun-if-changed=./proto/");
 
     Ok(())
 }
