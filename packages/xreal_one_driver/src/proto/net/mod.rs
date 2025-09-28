@@ -9,6 +9,7 @@ mod display_stop_osd_render;
 mod glasses_dp;
 mod dp_get_current_edid_dsp;
 mod dp_set_current_edid_dsp;
+mod dp_set_input_mode;
 
 use crate::proto::usb::RequestArgs;
 use protobuf::{Message, MessageField};
@@ -18,6 +19,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use crate::proto::net::dp_get_current_edid_dsp::DpGetCurrentEdidDsp;
 use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
+use crate::proto::net::dp_set_input_mode::DpSetInputMode;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -128,9 +130,9 @@ impl NetworkDevice {
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
 
-    let response = device.send_message::<DpSetCurrentEdidDsp>(protos::dp_get_current_edid_bsp::Request {
+    let response = device.send_message::<DpSetInputMode>(protos::dp_get_current_edid_bsp::Request {
         value: MessageField::some(protos::dp_get_current_edid_bsp::SetValue {
-            data: 5,
+            data: 0,
             ..Default::default()
         }),
         ..Default::default()
