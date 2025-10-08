@@ -14,12 +14,13 @@ mod dp_set_input_mode;
 use crate::proto::usb::RequestArgs;
 use protobuf::{Message, MessageField};
 use std::borrow::Cow;
-use std::io;
+use std::{fs, io};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use crate::proto::net::dp_get_current_edid_dsp::DpGetCurrentEdidDsp;
 use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
 use crate::proto::net::dp_set_input_mode::DpSetInputMode;
+use crate::proto::net::get_config::GetConfig;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -130,17 +131,11 @@ impl NetworkDevice {
 fn test() -> Result<(), anyhow::Error> {
     let mut device = NetworkDevice::new()?;
 
-    let response = device.send_message::<DpSetInputMode>(protos::dp_get_current_edid_bsp::Request {
-        value: MessageField::some(protos::dp_get_current_edid_bsp::SetValue {
-            data: 0,
-            ..Default::default()
-        }),
+    let response = device.send_message::<GetConfig>(protos::get_config::Request {
         ..Default::default()
     })?;
 
-    println!("{:#?}", response);
-    // println!("{}", String::from_utf8(response.0)?);
-    // fs::write("./calibration.json", &response.value.data)?;
+    fs::write("./calibration.json", &response.value.data)?;
 
     Ok(())
 }
