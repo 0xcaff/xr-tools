@@ -6,7 +6,7 @@ pub struct GetGlassesMcuFwVersion;
 
 impl UsbTransaction for GetGlassesMcuFwVersion {
     // firmware type 1
-    const COMMAND_ID: u8 = 0x26;
+    const COMMAND_ID: [u8; 2] = [0x26, 0x00];
     type RequestArgs = Empty;
     type Response = GetGlassesFwVersionResponse;
 }
@@ -15,7 +15,7 @@ pub struct GetGlassesDspFwVersion;
 
 impl UsbTransaction for GetGlassesDspFwVersion {
     // firmware type 3
-    const COMMAND_ID: u8 = 0x18;
+    const COMMAND_ID: [u8; 2] = [0x18, 0x00];
     type RequestArgs = Empty;
     type Response = GetGlassesFwVersionResponse;
 }
@@ -23,9 +23,8 @@ impl UsbTransaction for GetGlassesDspFwVersion {
 pub struct GetGlassesPilotFw;
 
 impl UsbTransaction for GetGlassesPilotFw {
+    const COMMAND_ID: [u8; 2] = [0x13, 0x12];
     // firmware type 6
-    const COMMAND_ID: u8 = 0x13;
-    const UNKONWN_VALUES: [u8; 6] = [0x12, 0x00, 0x00, 0x00, 0x00, 0x00];
 
     type RequestArgs = RawRequest;
     type Response = GetGlassesFwVersionResponse;

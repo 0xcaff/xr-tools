@@ -4,7 +4,7 @@ use anyhow::Error;
 pub struct GetInternalCode;
 
 impl UsbTransaction for GetInternalCode {
-    const COMMAND_ID: u8 = 0xD4;
+    const COMMAND_ID: [u8; 2] = [0xD4, 0x00];
     type RequestArgs = Empty;
     type Response = GetInternalCodeResponse;
 }

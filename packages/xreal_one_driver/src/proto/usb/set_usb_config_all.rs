@@ -6,7 +6,7 @@ use std::borrow::Cow;
 pub struct SetUsbConfigAll;
 
 impl UsbTransaction for SetUsbConfigAll {
-    const COMMAND_ID: u8 = 0xD3;
+    const COMMAND_ID: [u8; 2] = [0xD3, 0x00];
     type RequestArgs = SetUsbConfigAllRequest;
     type Response = ();
 }

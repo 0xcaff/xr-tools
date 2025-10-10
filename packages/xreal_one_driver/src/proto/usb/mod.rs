@@ -11,8 +11,8 @@ pub mod set_usb_config_all;
 pub mod get_internal_code;
 
 pub trait UsbTransaction {
-    const COMMAND_ID: u8;
-    const UNKONWN_VALUES: [u8; 6] = [0u8; 6];
+    const COMMAND_ID: [u8; 2];
+    const UNKONWN_VALUES: [u8; 5] = [0u8; 5];
 
     type RequestArgs: RequestArgs;
     type Response: Response;
@@ -95,9 +95,9 @@ impl UsbDevice {
 
     fn send_message_raw(
         &self,
-        command_tag: u8,
+        command_tag: [u8; 2],
         data: &[u8],
-        unknown: [u8; 6],
+        unknown: [u8; 5],
     ) -> Result<ControlMessageResponse, anyhow::Error> {
         let mut body = [0u8; 1024];
 
@@ -166,7 +166,7 @@ impl UsbDevice {
 
         if response_header.fields.command != command_tag {
             bail!(
-                "invalid response command: {}, expected: {}",
+                "invalid response command: {:?}, expected: {:?}",
                 response_header.fields.command,
                 command_tag
             );
@@ -218,6 +218,6 @@ struct ControlMessageHeaderChecksummed {
     length: u16,
     request_id: u32,
     timestamp: u32,
-    command: u8,
-    unknown: [u8; 6],
+    command: [u8; 2],
+    unknown: [u8; 5],
 }
