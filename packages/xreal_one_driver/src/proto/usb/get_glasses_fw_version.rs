@@ -38,7 +38,7 @@ pub struct GetGlassesFwVersionResponse {
 
 impl Response for GetGlassesFwVersionResponse {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
-        let version = String::from_utf8_lossy(&buffer[1..]).to_string();
+        let version = String::from_utf8_lossy(&buffer).to_string();
 
         Ok(Self { version })
     }

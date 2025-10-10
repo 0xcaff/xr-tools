@@ -61,8 +61,7 @@ pub trait ConstRequestArgs {
 
 impl Response for () {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {
-        assert_eq!(buffer.len(), 1);
-        assert_eq!(buffer[0], 0);
+        assert_eq!(buffer.len(), 0);
 
         Ok(())
     }
@@ -182,7 +181,10 @@ impl UsbDevice {
             );
         }
 
-        println!("{:x?}", body);
+        let status = body[size_of::<ControlMessageHeader>()];
+        if status != 0 {
+            bail!("invalid response status: {}", status);
+        }
 
         Ok(ControlMessageResponse { body })
     }
@@ -200,7 +202,7 @@ impl ControlMessageResponse {
     }
 
     pub fn data(&self) -> &[u8] {
-        &self.body[size_of::<ControlMessageHeader>()
+        &self.body[(size_of::<ControlMessageHeader>() + 1)
             ..self.header().fields.length as usize + offset_of!(ControlMessageHeader, fields)]
     }
 }

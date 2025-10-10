@@ -16,8 +16,8 @@ pub struct GetCameraStatusResponse {
 
 impl Response for GetCameraStatusResponse {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
-        assert_eq!(buffer.len(), 2);
-        let plugged_in = match buffer[1] {
+        assert_eq!(buffer.len(), 1);
+        let plugged_in = match buffer[0] {
             0x00 => true,
             0x01 => false,
             value => return Err(anyhow!("invalid camera status, {}", value)),
