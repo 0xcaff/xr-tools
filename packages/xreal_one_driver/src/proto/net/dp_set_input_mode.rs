@@ -2,7 +2,7 @@ use crate::proto::net::{protos, NetworkTransaction};
 
 pub struct DpSetInputMode;
 
-impl NetworkTransaction for DpSetInputMode {
+impl NetworkTransaction<'static> for DpSetInputMode {
     const MAGIC: [u8; 2] = [0x28, 0x22];
     
     // 1 = SBS

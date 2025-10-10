@@ -6,7 +6,6 @@ mod glasses_get_id;
 mod glasses_get_sw_version;
 mod glasses_get_dsp_version;
 mod display_stop_osd_render;
-mod glasses_dp;
 mod dp_get_current_edid_dsp;
 mod dp_set_current_edid_dsp;
 mod dp_set_input_mode;
@@ -31,17 +30,17 @@ impl Response for RawResponse {
     }
 }
 
-pub struct RawRequest(pub &'static [u8]);
+pub struct RawRequest<'a>(pub &'a [u8]);
 
-impl RequestArgs for RawRequest {
-    fn as_bytes(&self) -> Result<Cow<'_, [u8]>, anyhow::Error> {
+impl <'a> RequestArgs<'a> for RawRequest<'a> {
+    fn as_bytes(&self) -> Result<Cow<'a, [u8]>, anyhow::Error> {
         Ok(Cow::Borrowed(self.0))
     }
 }
 
-trait NetworkTransaction {
+trait NetworkTransaction<'request> {
     const MAGIC: [u8; 2];
-    type RequestArgs: RequestArgs;
+    type RequestArgs: RequestArgs<'request>;
     type Response: Response;
 }
 
@@ -95,7 +94,7 @@ impl NetworkDevice {
         })
     }
 
-    pub fn send_message<T: NetworkTransaction>(&mut self, request: T::RequestArgs) -> Result<T::Response, anyhow::Error> {
+    pub fn send_message<'a, T: NetworkTransaction<'a>>(&mut self, request: T::RequestArgs) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
         println!("{:#x?}", body);
 

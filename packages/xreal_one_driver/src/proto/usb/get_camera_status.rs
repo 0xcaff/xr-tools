@@ -3,7 +3,7 @@ use anyhow::{anyhow, Error};
 
 pub struct GetCameraStatus;
 
-impl UsbTransaction for GetCameraStatus {
+impl UsbTransaction<'static> for GetCameraStatus {
     const COMMAND_ID: [u8; 2] = [0xD5, 0x00];
     type RequestArgs = Empty;
     type Response = GetCameraStatusResponse;

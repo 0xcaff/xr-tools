@@ -9,17 +9,18 @@ pub mod get_glasses_fw_version;
 pub mod get_usb_config_all;
 pub mod set_usb_config_all;
 pub mod get_internal_code;
+pub mod pilot_update;
 
-pub trait UsbTransaction {
+pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
     const UNKONWN_VALUES: [u8; 5] = [0u8; 5];
 
-    type RequestArgs: RequestArgs;
+    type RequestArgs: RequestArgs<'req>;
     type Response: Response;
 }
 
-pub trait RequestArgs {
-    fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error>;
+pub trait RequestArgs<'a> {
+    fn as_bytes(&self) -> Result<Cow<'a, [u8]>, anyhow::Error>;
 
     fn serialize_into(&self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
         let bytes = self.as_bytes()?;
@@ -29,8 +30,8 @@ pub trait RequestArgs {
     }
 }
 
-impl <T: Message> RequestArgs for T {
-    fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error> {
+impl <T: Message> RequestArgs<'static> for T {
+    fn as_bytes(&self) -> Result<Cow<'static, [u8]>, anyhow::Error> {
         let bytes = self.write_to_bytes()?;
         Ok(Cow::Owned(bytes))
     }
@@ -42,8 +43,8 @@ pub trait Response: Sized {
 
 pub struct Empty;
 
-impl RequestArgs for Empty {
-    fn as_bytes(&self) -> Result<Cow<[u8]>, anyhow::Error> {
+impl RequestArgs<'static> for Empty {
+    fn as_bytes(&self) -> Result<Cow<'static, [u8]>, anyhow::Error> {
         Ok(Cow::Borrowed(&[]))
     }
 }
@@ -78,7 +79,7 @@ impl UsbDevice {
         Ok(Self { device })
     }
 
-    pub fn send_mesasge<Txn: UsbTransaction>(
+    pub fn send_mesasge<'req, Txn: UsbTransaction<'req>>(
         &self,
         request: Txn::RequestArgs,
     ) -> Result<Txn::Response, anyhow::Error> {

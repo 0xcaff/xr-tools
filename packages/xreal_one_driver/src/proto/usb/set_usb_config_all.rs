@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 pub struct SetUsbConfigAll;
 
-impl UsbTransaction for SetUsbConfigAll {
+impl <'req> UsbTransaction<'req> for SetUsbConfigAll {
     const COMMAND_ID: [u8; 2] = [0xD3, 0x00];
     type RequestArgs = SetUsbConfigAllRequest;
     type Response = ();
@@ -15,8 +15,8 @@ pub struct SetUsbConfigAllRequest {
     pub config: UsbConfigList,
 }
 
-impl RequestArgs for SetUsbConfigAllRequest {
-    fn as_bytes(&self) -> Result<Cow<[u8]>, Error> {
+impl <'a> RequestArgs<'a> for SetUsbConfigAllRequest {
+    fn as_bytes(&self) -> Result<Cow<'a, [u8]>, Error> {
         Ok(Cow::Owned(self.config.into_bytes().to_vec()))
     }
 }

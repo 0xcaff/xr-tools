@@ -3,7 +3,7 @@ use modular_bitfield::bitfield;
 
 pub struct GetUsbConfigAll;
 
-impl UsbTransaction for GetUsbConfigAll {
+impl UsbTransaction<'static> for GetUsbConfigAll {
     const COMMAND_ID: [u8; 2] = [0xD2, 0x00];
     type RequestArgs = Empty;
     type Response = GetUsbConfigAllResponse;
