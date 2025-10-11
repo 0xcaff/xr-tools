@@ -7,4 +7,3 @@ impl NetworkTransaction<'static> for GetConfig {
     type RequestArgs = protos::get_config::Request;
     type Response = protos::get_config::Response;
 }
-

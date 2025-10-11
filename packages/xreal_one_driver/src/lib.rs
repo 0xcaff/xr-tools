@@ -1,9 +1,6 @@
 use crate::proto::net::RawRequest;
-use crate::proto::usb::get_internal_code::GetInternalCode;
-use crate::proto::usb::get_usb_config_all::UsbConfigList;
-use crate::proto::usb::set_usb_config_all::{SetUsbConfigAll, SetUsbConfigAllRequest};
-use crate::proto::usb::{Empty, UsbDevice};
-use crate::proto::usb::get_glasses_fw_version::{GetGlassesDspFwVersion, GetGlassesMcuFwVersion, GetGlassesPilotFw};
+use crate::proto::usb::get_glasses_fw_version::GetGlassesPilotFw;
+use crate::proto::usb::UsbDevice;
 
 pub mod proto;
 

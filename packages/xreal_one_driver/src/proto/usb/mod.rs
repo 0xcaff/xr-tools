@@ -1,15 +1,15 @@
-use anyhow::{bail};
+use anyhow::{bail, Error};
 use bytemuck::{Pod, Zeroable};
+use protobuf::Message;
 use std::borrow::Cow;
 use std::mem::offset_of;
-use protobuf::Message;
 
 pub mod get_camera_status;
 pub mod get_glasses_fw_version;
-pub mod get_usb_config_all;
-pub mod set_usb_config_all;
 pub mod get_internal_code;
+pub mod get_usb_config_all;
 pub mod pilot_update;
+pub mod set_usb_config_all;
 
 pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
@@ -30,7 +30,7 @@ pub trait RequestArgs<'a> {
     }
 }
 
-impl <T: Message> RequestArgs<'static> for T {
+impl<T: Message> RequestArgs<'static> for T {
     fn as_bytes(&self) -> Result<Cow<'static, [u8]>, anyhow::Error> {
         let bytes = self.write_to_bytes()?;
         Ok(Cow::Owned(bytes))
@@ -39,6 +39,14 @@ impl <T: Message> RequestArgs<'static> for T {
 
 pub trait Response: Sized {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error>;
+}
+
+pub struct RawResponse(pub Vec<u8>);
+
+impl Response for RawResponse {
+    fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
+        Ok(Self(buffer.to_vec()))
+    }
 }
 
 pub struct Empty;
@@ -158,7 +166,7 @@ impl UsbDevice {
         let expected_checksum = crc_adler::crc32(
             &body[offset_of!(ControlMessageHeader, fields)
                 ..(response_header.fields.length as usize
-                + offset_of!(ControlMessageHeader, fields))],
+                    + offset_of!(ControlMessageHeader, fields))],
         );
         if expected_checksum != response_header.checksum {
             bail!("invalid response checksum: {}", expected_checksum);

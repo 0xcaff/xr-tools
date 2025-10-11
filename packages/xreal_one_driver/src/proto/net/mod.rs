@@ -1,25 +1,22 @@
-mod get_config;
-mod protos;
-mod set_display_brightness;
-mod set_electrochromic_dimmer;
-mod glasses_get_id;
-mod glasses_get_sw_version;
-mod glasses_get_dsp_version;
 mod display_stop_osd_render;
 mod dp_get_current_edid_dsp;
 mod dp_set_current_edid_dsp;
 mod dp_set_input_mode;
+mod get_config;
+mod glasses_get_dsp_version;
+mod glasses_get_id;
+mod glasses_get_sw_version;
+mod protos;
+mod set_display_brightness;
+mod set_electrochromic_dimmer;
 
+use crate::proto::net::get_config::GetConfig;
 use crate::proto::usb::RequestArgs;
-use protobuf::{Message, MessageField};
+use protobuf::Message;
 use std::borrow::Cow;
-use std::{fs, io};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use crate::proto::net::dp_get_current_edid_dsp::DpGetCurrentEdidDsp;
-use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
-use crate::proto::net::dp_set_input_mode::DpSetInputMode;
-use crate::proto::net::get_config::GetConfig;
+use std::{fs, io};
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -32,7 +29,7 @@ impl Response for RawResponse {
 
 pub struct RawRequest<'a>(pub &'a [u8]);
 
-impl <'a> RequestArgs<'a> for RawRequest<'a> {
+impl<'a> RequestArgs<'a> for RawRequest<'a> {
     fn as_bytes(&self) -> Result<Cow<'a, [u8]>, anyhow::Error> {
         Ok(Cow::Borrowed(self.0))
     }
@@ -48,7 +45,10 @@ pub trait Response: Sized {
     fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error>;
 }
 
-impl <T> Response for T where T: Message {
+impl<T> Response for T
+where
+    T: Message,
+{
     fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
         Ok(T::parse_from_bytes(&buffer)?)
     }
@@ -84,17 +84,20 @@ impl NetworkMessageHeader {
 }
 
 struct NetworkDevice {
-    connection: TcpStream
+    connection: TcpStream,
 }
 
 impl NetworkDevice {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
-            connection: TcpStream::connect("169.254.2.1:52999")?
+            connection: TcpStream::connect("169.254.2.1:52999")?,
         })
     }
 
-    pub fn send_message<'a, T: NetworkTransaction<'a>>(&mut self, request: T::RequestArgs) -> Result<T::Response, anyhow::Error> {
+    pub fn send_message<'a, T: NetworkTransaction<'a>>(
+        &mut self,
+        request: T::RequestArgs,
+    ) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
         println!("{:#x?}", body);
 

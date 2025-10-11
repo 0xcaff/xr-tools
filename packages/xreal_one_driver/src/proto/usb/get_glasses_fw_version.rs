@@ -1,6 +1,6 @@
+use crate::proto::net::RawRequest;
 use crate::proto::usb::{Empty, Response, UsbTransaction};
 use anyhow::Error;
-use crate::proto::net::RawRequest;
 
 pub struct GetGlassesMcuFwVersion;
 
@@ -29,7 +29,6 @@ impl UsbTransaction<'static> for GetGlassesPilotFw {
     type RequestArgs = RawRequest<'static>;
     type Response = GetGlassesFwVersionResponse;
 }
-
 
 #[derive(Debug)]
 pub struct GetGlassesFwVersionResponse {

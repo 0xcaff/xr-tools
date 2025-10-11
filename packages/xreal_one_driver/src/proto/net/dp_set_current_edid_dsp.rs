@@ -7,5 +7,3 @@ impl NetworkTransaction<'static> for DpSetCurrentEdidDsp {
     type RequestArgs = protos::dp_get_current_edid_bsp::Request;
     type Response = protos::dp_get_current_edid_bsp::Response;
 }
-
-

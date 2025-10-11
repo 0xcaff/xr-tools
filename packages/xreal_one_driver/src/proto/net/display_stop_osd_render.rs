@@ -7,5 +7,3 @@ impl NetworkTransaction<'static> for DisplayStopOSDRender {
     type RequestArgs = protos::set_scene_mode::Request;
     type Response = protos::set_scene_mode::Response;
 }
-
-
