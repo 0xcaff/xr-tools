@@ -83,7 +83,7 @@ impl NetworkMessageHeader {
     }
 }
 
-struct NetworkDevice {
+pub struct NetworkDevice {
     connection: TcpStream,
 }
 

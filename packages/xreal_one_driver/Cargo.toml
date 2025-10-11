@@ -3,15 +3,20 @@ name = "xreal_one_driver"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+path = "bin/xreal_one_ctl.rs"
+name = "xreal_one_ctl"
+
 [dependencies]
 hidapi = "2.6.3"
 anyhow = "1.0.99"
 crc-adler = "0.1.1"
-bytemuck = { version = "1.23.2", features = ["derive"]}
+bytemuck = { version = "1.23.2", features = ["derive"] }
 modular-bitfield = "0.12.0"
 protobuf = "=3.5.0"
 binrw = "0.14"
 lzokay-native = { version = "0.1.0", features = ["decompress"] }
+clap = { version = "4.5.48", features = ["derive"] }
 
 [dev-dependencies]
 hexdump = "0.1.2"
