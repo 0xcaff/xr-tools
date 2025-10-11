@@ -31,18 +31,18 @@ fn main() -> Result<(), anyhow::Error> {
             mcu_path,
             pilot_path,
         } => {
-            let api = hidapi::HidApi::new()?;
-            let device = UsbDevice::open(&api)?;
-
             let mcu_bytes = std::fs::read(mcu_path)?;
             let pilot_bytes = std::fs::read(pilot_path)?;
 
             let mcu_update = McuUpdate::parse(&mcu_bytes)?;
 
+            let api = hidapi::HidApi::new()?;
+            let device = UsbDevice::open(&api)?;
+
             let bar = indicatif::ProgressBar::new((pilot_bytes.len() + mcu_update.size()) as u64);
             bar.enable_steady_tick(Duration::from_millis(100));
             bar.set_style(ProgressStyle::with_template(
-                "{decimal_bytes}/{decimal_total_bytes} {bar} {bytes_per_sec} ({elapsed_precise} / {eta_precise}}) {msg}",
+                "{decimal_bytes}/{decimal_total_bytes} {bar} {bytes_per_sec} ({elapsed_precise} / {eta_precise}) {msg}",
             )?);
 
             let bar = {
