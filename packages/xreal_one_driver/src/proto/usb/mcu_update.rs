@@ -147,7 +147,7 @@ impl UpgradeHeader {
         }
 
         Ok((header, reader.position() as usize))
-   }
+    }
 }
 
 #[binrw]
@@ -202,10 +202,57 @@ impl SegmentEntry {
     }
 }
 
+pub trait McuUpdateProgressReporter {
+    fn transmit(&mut self, length: usize) {}
+}
+
+pub struct McuUpdate<'a> {
+    bytes: &'a [u8],
+    upgrade_header: UpgradeHeader,
+    header_end_offset: usize,
+}
+
+impl McuUpdate<'_> {
+    pub fn parse<'a>(bytes: &'a [u8]) -> Result<McuUpdate<'a>, anyhow::Error> {
+        let (upgrade_header, header_end_offset) = UpgradeHeader::load(bytes)?;
+
+        Ok(McuUpdate {
+            bytes,
+            upgrade_header,
+            header_end_offset,
+        })
+    }
+
+    pub fn size(&self) -> usize {
+        self.header_end_offset
+            + self
+                .upgrade_header
+                .segments
+                .iter()
+                .map(|s| s.decompress_size as usize)
+                .sum::<usize>()
+    }
+
+    pub fn kernel_bytes(&self) -> &[u8] {
+        &self.bytes[..self.header_end_offset]
+    }
+}
+
 impl UsbDevice {
-    pub fn update_mcu(&self, bytes: &[u8]) -> Result<(), anyhow::Error> {
-        let (header, header_end_offset) = UpgradeHeader::load(bytes)?;
-        let kernel_bytes = &bytes[..header_end_offset];
+    pub fn update_mcu(&self, update: McuUpdate) -> Result<(), anyhow::Error> {
+        struct EmptyReporter;
+
+        impl McuUpdateProgressReporter for EmptyReporter {}
+
+        self.update_mcu_with_progress(update, &mut EmptyReporter)
+    }
+
+    pub fn update_mcu_with_progress(
+        &self,
+        update: McuUpdate,
+        progress: &mut impl McuUpdateProgressReporter,
+    ) -> Result<(), anyhow::Error> {
+        let kernel_bytes = update.kernel_bytes();
 
         let checksum = crc_adler::crc32(kernel_bytes);
 
@@ -221,14 +268,15 @@ impl UsbDevice {
             let segment = &kernel_bytes[offset..end_offset];
 
             self.send_message::<McuUpdateKernelTransmit>(RawRequest(segment))?;
+            progress.transmit(end_offset - offset);
 
             offset = end_offset;
-        };
+        }
 
         self.send_message::<McuUpdateKernelFinish>(Empty)?;
 
-        for segment in &header.segments {
-            let segment_bytes = segment.load(bytes)?;
+        for segment in &update.upgrade_header.segments {
+            let segment_bytes = segment.load(update.bytes)?;
             self.send_message::<McuUpdateSegmentStart>(McuUpdateSegmentStartRequest {
                 checksum: crc_adler::crc32(&segment_bytes),
                 flash_offset: segment.flash_offset,
@@ -241,11 +289,12 @@ impl UsbDevice {
                 let segment = &segment_bytes[offset..end_offset];
 
                 self.send_message::<McuUpdateSegmentTransmit>(RawRequest(segment))?;
+                progress.transmit(end_offset - offset);
                 offset = end_offset;
-            };
+            }
 
             self.send_message::<McuUpdateSegmentFinish>(RawRequest(&[0xff]))?;
-        };
+        }
 
         Ok(())
     }
@@ -279,7 +328,7 @@ mod tests {
             println!("segment checksum: {:x}", crc_adler::crc32(&segment_bytes));
             println!("segment flash offset: {:x}", segment.flash_offset);
             println!("segment size: {:x}", segment_bytes.len());
-        };
+        }
 
         Ok(())
     }

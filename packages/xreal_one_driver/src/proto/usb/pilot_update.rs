@@ -31,14 +31,34 @@ impl UsbTransaction<'static> for PilotUpdateFinish {
     type Response = ();
 }
 
+pub trait PilotUpdateProgressReporter {
+    fn transmit(&mut self, length: usize) {}
+}
+
 impl UsbDevice {
     pub fn update_pilot(&self, update: &[u8]) -> Result<(), anyhow::Error> {
+        struct EmptyReporter;
+        impl PilotUpdateProgressReporter for EmptyReporter {}
+
+        self.update_pilot_with_progress(update, &mut EmptyReporter)?;
+
+        Ok(())
+    }
+
+    pub fn update_pilot_with_progress(
+        &self,
+        update: &[u8],
+        progress: &mut impl PilotUpdateProgressReporter,
+    ) -> Result<(), anyhow::Error> {
         self.send_message::<PilotUpdateStart>(RawRequest(&update[0..64]))?;
+        progress.transmit(64);
 
         let mut position = 64;
         while position < update.len() {
             let end_position = std::cmp::min(position + 1002, update.len());
             self.send_message::<PilotUpdateTransmit>(RawRequest(&update[position..end_position]))?;
+            progress.transmit(end_position - position);
+
             position = end_position;
         }
 
