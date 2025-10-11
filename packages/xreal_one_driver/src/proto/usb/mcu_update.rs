@@ -1,10 +1,9 @@
 use crate::proto::net::RawRequest;
 use crate::proto::usb::{Empty, RequestArgs, UsbDevice, UsbTransaction};
-use anyhow::{bail};
+use anyhow::bail;
 use binrw::{binrw, BinReaderExt};
 use std::borrow::Cow;
 use std::io::{Cursor, SeekFrom};
-use std::mem::offset_of;
 
 pub struct McuUpdateKernelStart;
 
@@ -97,7 +96,7 @@ impl RequestArgs<'static> for McuUpdateSegmentFinishRequest {
 #[derive(Debug)]
 pub struct UpgradeHeader {
     #[br(seek_before = SeekFrom::Start(0x40))]
-    pub magic: u32, // 0x40
+    pub magic: [u8; 4], // 0x40
     pub hdr_version: u8,                   // 0x44
     pub compressed: u8,                    // 0x45
     pub flash_type: u8,                    // 0x46
@@ -137,6 +136,18 @@ pub struct UpgradeHeader {
 
     #[br(count = segments_cnt)]
     pub segments: Vec<SegmentEntry>,
+}
+
+impl UpgradeHeader {
+    pub fn load(bytes: &[u8]) -> Result<(Self, usize), anyhow::Error> {
+        let mut reader = Cursor::new(bytes);
+        let header: UpgradeHeader = reader.read_le()?;
+        if &header.magic != b"OTRA" {
+            bail!("invalid magic");
+        }
+
+        Ok((header, reader.position() as usize))
+   }
 }
 
 #[binrw]
@@ -193,23 +204,11 @@ impl SegmentEntry {
 
 impl UsbDevice {
     pub fn update_mcu(&self, bytes: &[u8]) -> Result<(), anyhow::Error> {
-        let (header, header_end_offset) = {
-            let mut reader = Cursor::new(bytes);
-            let header: UpgradeHeader = reader.read_le()?;
-
-            (header, reader.position() as usize)
-        };
-
-        println!("{:?}", &header);
-
+        let (header, header_end_offset) = UpgradeHeader::load(bytes)?;
         let kernel_bytes = &bytes[..header_end_offset];
 
         let checksum = crc_adler::crc32(kernel_bytes);
 
-        println!("kernel checksum: {}", checksum);
-        println!("kernel size: {}", kernel_bytes.len());
-
-        // todo: validate remaining
         self.send_message::<McuUpdateKernelStart>(McuUpdateKernelStartRequest {
             checksum,
             length: kernel_bytes.len() as u32,
@@ -246,6 +245,40 @@ impl UsbDevice {
             };
 
             self.send_message::<McuUpdateSegmentFinish>(RawRequest(&[0xff]))?;
+        };
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::proto::usb::mcu_update::UpgradeHeader;
+    use std::fs;
+
+    #[test]
+    #[ignore]
+    fn read_update() -> Result<(), anyhow::Error> {
+        let bytes = fs::read("/Volumes/data-lake/data-lake-1/xreal-one-updates/02.746_20250925_01.097_20250430_1.7.0.20250925155123/mcu/15.1.02.746_20250925.bin")?;
+        let (header, header_end_offset) = UpgradeHeader::load(&bytes)?;
+
+        println!("{:?}", &header);
+
+        let kernel_bytes = &bytes[..header_end_offset];
+
+        let checksum = crc_adler::crc32(kernel_bytes);
+
+        println!("kernel checksum: {:x}", checksum);
+        println!("kernel size: {:x}", kernel_bytes.len());
+
+        for segment in &header.segments {
+            let segment_bytes = segment.load(&bytes)?;
+
+            hexdump::hexdump(&segment_bytes);
+
+            println!("segment checksum: {:x}", crc_adler::crc32(&segment_bytes));
+            println!("segment flash offset: {:x}", segment.flash_offset);
+            println!("segment size: {:x}", segment_bytes.len());
         };
 
         Ok(())
