@@ -8,9 +8,9 @@ pub mod get_camera_status;
 pub mod get_glasses_fw_version;
 pub mod get_internal_code;
 pub mod get_usb_config_all;
+pub mod mcu_update;
 pub mod pilot_update;
 pub mod set_usb_config_all;
-pub mod mcu_update;
 
 pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
@@ -87,7 +87,7 @@ impl UsbDevice {
         Ok(Self { device })
     }
 
-    pub fn send_mesasge<'req, Txn: UsbTransaction<'req>>(
+    pub fn send_message<'req, Txn: UsbTransaction<'req>>(
         &self,
         request: Txn::RequestArgs,
     ) -> Result<Txn::Response, anyhow::Error> {

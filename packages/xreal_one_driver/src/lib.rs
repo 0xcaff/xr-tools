@@ -11,7 +11,7 @@ fn test() -> Result<(), anyhow::Error> {
     // device.send_message_raw(0xD3, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x01, 0x00])?;
     // let response = device.send_message_raw(0xD5, &[0x00, 0x00, 0x00, 0x00, 0x00, 0x0])?;
     // println!("{:?}", response.data());
-    let response = device.send_mesasge::<GetGlassesPilotFw>(RawRequest(&[0x02]))?;
+    let response = device.send_message::<GetGlassesPilotFw>(RawRequest(&[0x02]))?;
     println!("{:?}", response);
 
     Ok(())
