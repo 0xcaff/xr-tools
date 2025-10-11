@@ -10,6 +10,7 @@ pub mod get_internal_code;
 pub mod get_usb_config_all;
 pub mod pilot_update;
 pub mod set_usb_config_all;
+pub mod mcu_update;
 
 pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];

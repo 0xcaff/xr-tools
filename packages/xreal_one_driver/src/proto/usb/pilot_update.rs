@@ -1,25 +1,14 @@
-use crate::proto::usb::{Empty, RawResponse, RequestArgs, UsbTransaction};
-use anyhow::Error;
-use std::borrow::Cow;
+use crate::proto::net::RawRequest;
+use crate::proto::usb::{Empty, RawResponse, UsbTransaction};
 use std::marker::PhantomData;
 
 pub struct PilotUpdateStart<'a> {
     phantom_data: PhantomData<&'a ()>,
 }
 
-pub struct PilotUpdateBody<'a> {
-    bytes: &'a [u8],
-}
-
-impl<'req> RequestArgs<'req> for PilotUpdateBody<'req> {
-    fn as_bytes(&self) -> Result<Cow<'req, [u8]>, Error> {
-        Ok(Cow::Borrowed(self.bytes))
-    }
-}
-
 impl<'req> UsbTransaction<'req> for PilotUpdateStart<'req> {
     const COMMAND_ID: [u8; 2] = [0x14, 0x12];
-    type RequestArgs = PilotUpdateBody<'req>;
+    type RequestArgs = RawRequest<'req>;
 
     type Response = RawResponse;
 }
@@ -30,7 +19,7 @@ pub struct PilotUpdateTransmit<'req> {
 
 impl<'req> UsbTransaction<'req> for PilotUpdateTransmit<'req> {
     const COMMAND_ID: [u8; 2] = [0x15, 0x12];
-    type RequestArgs = PilotUpdateBody<'req>;
+    type RequestArgs = RawRequest<'req>;
     type Response = ();
 }
 
