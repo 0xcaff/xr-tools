@@ -17,6 +17,7 @@ use std::borrow::Cow;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::{fs, io};
+use anyhow::bail;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -99,7 +100,6 @@ impl NetworkDevice {
         request: T::RequestArgs,
     ) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
-        println!("{:#x?}", body);
 
         let tx_id = 1;
 
@@ -117,10 +117,14 @@ impl NetworkDevice {
 
         let header = NetworkMessageHeader::from_bytes(&header)?;
 
-        // if header.transaction_id != tx_id {
-        //     let transaction_id = header.transaction_id;
-        //     bail!("invalid transaction id, got {}, expected: {}", tx_id, transaction_id);
-        // }
+        if header.transaction_id != tx_id {
+            let transaction_id = header.transaction_id;
+            bail!("invalid transaction id, got {}, expected: {}", tx_id, transaction_id);
+        }
+
+        if header.magic != T::MAGIC {
+            bail!("invalid magic, got {:?}, expected: {:?}", header.magic, T::MAGIC);
+        }
 
         let mut body = vec![0u8; (header.length - 4) as usize];
         self.connection.read_exact(&mut body)?;
