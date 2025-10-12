@@ -9,6 +9,7 @@ mod glasses_get_sw_version;
 mod protos;
 mod set_display_brightness;
 mod set_electrochromic_dimmer;
+mod key_submit_state;
 
 use crate::proto::net::get_config::GetConfig;
 use crate::proto::usb::RequestArgs;
@@ -21,6 +22,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs, io};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::proto::net::key_submit_state::KeySubmitState;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -66,29 +68,40 @@ where
 struct NetworkMessageHeader {
     magic: [u8; 2],
     length: u32,
-    transaction_id: u32,
 }
 
 impl NetworkMessageHeader {
-    pub async fn write(&self, mut writer: impl AsyncWrite + Unpin) -> Result<(), io::Error> {
-        writer.write_all(&self.magic).await?;
-        writer.write_all(&self.length.to_be_bytes()).await?;
-        writer.write_all(&self.transaction_id.to_be_bytes()).await?;
-
-        Ok(())
-    }
-
     pub fn from_bytes(buffer: &[u8]) -> Result<Self, anyhow::Error> {
         let mut magic = [0u8; 2];
         magic.copy_from_slice(&buffer[0..2]);
         let length = u32::from_be_bytes([buffer[2], buffer[3], buffer[4], buffer[5]]);
-        let transaction_id = u32::from_be_bytes([buffer[6], buffer[7], buffer[8], buffer[9]]);
 
         Ok(Self {
             magic,
             length,
-            transaction_id,
         })
+    }
+
+    pub async fn write(&self, mut writer: impl AsyncWrite + Unpin) -> Result<(), io::Error> {
+        writer.write_all(&self.magic).await?;
+        writer.write_all(&self.length.to_be_bytes()).await?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct NetworkTransactionMessageHeader {
+    header: NetworkMessageHeader,
+    transaction_id: u32,
+}
+
+impl NetworkTransactionMessageHeader {
+    pub async fn write(&self, mut writer: impl AsyncWrite + Unpin) -> Result<(), io::Error> {
+        self.header.write(&mut writer).await?;
+        writer.write_all(&self.transaction_id.to_be_bytes()).await?;
+
+        Ok(())
     }
 }
 
@@ -110,31 +123,42 @@ impl NetworkDevice {
                 pending_requests: pending_requests.clone(),
             },
             async move {
-                let mut header = [0u8; 10];
+                let mut header = [0u8; 6];
 
                 loop {
                     read.read_exact(&mut header).await?;
 
                     let header = NetworkMessageHeader::from_bytes(&header)?;
+                    println!("{:#?}", header);
 
-                    let mut body = vec![0u8; (header.length - 4) as usize];
-                    read.read_exact(&mut body).await?;
-                    println!("{:#?}", &header);
-                    hexdump::hexdump(&body);
+                    match header.magic {
+                        KeySubmitState::MAGIC => {
+                            let mut body = vec![0u8; (header.length) as usize];
+                            read.read_exact(&mut body).await?;
 
-                    let Some(pending_request) = pending_requests
-                        .lock()
-                        .unwrap()
-                        .remove(&(header.transaction_id, header.magic))
-                    else {
-                        continue;
-                        // panic!(
-                        //     "no pending request for transaction id: {}",
-                        //     header.transaction_id
-                        // );
-                    };
+                            let from = KeySubmitState::deserialize_from(body)?;
+                            println!("{:#?}", from);
+                        }
+                        _ => {
+                            let transaction_id = read.read_u32_le().await?;
+                            let mut body = vec![0u8; (header.length - 4) as usize];
+                            read.read_exact(&mut body).await?;
 
-                    let _ = pending_request.send(body);
+                            let Some(pending_request) = pending_requests
+                                .lock()
+                                .unwrap()
+                                .remove(&(transaction_id, header.magic))
+                            else {
+                                // panic!(
+                                //     "no pending request for transaction id: {}",
+                                //     transaction_id
+                                // );
+                                continue;
+                            };
+
+                            let _ = pending_request.send(body);
+                        }
+                    }
                 }
             },
         ))
@@ -148,9 +172,11 @@ impl NetworkDevice {
 
         let tx_id = 1;
 
-        let header = NetworkMessageHeader {
-            magic: T::MAGIC.clone(),
-            length: body.len() as u32 + 4,
+        let header = NetworkTransactionMessageHeader {
+            header: NetworkMessageHeader {
+                magic: T::MAGIC,
+                length: body.len() as u32 + 4,
+            },
             transaction_id: tx_id | 0x80000000,
         };
 

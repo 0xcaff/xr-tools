@@ -19,6 +19,7 @@ lzokay-native = { version = "0.1.0", features = ["decompress"] }
 tokio = { version = "1.47.1", features = ["net", "io-util", "sync", "macros", "rt", "time"] }
 clap = { version = "4.5.48", features = ["derive"] }
 indicatif = "0.18.0"
+strum = { version = "0.27.2", features = ["derive"] }
 
 hexdump = "0.1.2"
 
