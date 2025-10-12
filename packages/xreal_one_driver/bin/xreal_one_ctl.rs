@@ -2,9 +2,7 @@ use clap::{Parser, Subcommand};
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
 use std::time::Duration;
-use xreal_one_driver::proto::usb::mcu_update::{
-    McuUpdate, McuUpdateProgressReporter,
-};
+use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
 use xreal_one_driver::UsbDevice;
 

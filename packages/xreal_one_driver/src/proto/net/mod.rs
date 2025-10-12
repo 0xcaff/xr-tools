@@ -14,10 +14,13 @@ use crate::proto::net::get_config::GetConfig;
 use crate::proto::usb::RequestArgs;
 use protobuf::Message;
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::future::Future;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::{fs, io};
-use anyhow::bail;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -42,6 +45,10 @@ trait NetworkTransaction<'request> {
     type Response: Response;
 }
 
+trait InboundRequest: Response {
+    const MAGIC: [u8; 2];
+}
+
 pub trait Response: Sized {
     fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error>;
 }
@@ -55,6 +62,7 @@ where
     }
 }
 
+#[derive(Debug)]
 struct NetworkMessageHeader {
     magic: [u8; 2],
     length: u32,
@@ -62,10 +70,10 @@ struct NetworkMessageHeader {
 }
 
 impl NetworkMessageHeader {
-    pub fn write(&self, mut writer: impl Write) -> Result<(), io::Error> {
-        writer.write_all(&self.magic)?;
-        writer.write_all(&self.length.to_be_bytes())?;
-        writer.write_all(&self.transaction_id.to_be_bytes())?;
+    pub async fn write(&self, mut writer: impl AsyncWrite + Unpin) -> Result<(), io::Error> {
+        writer.write_all(&self.magic).await?;
+        writer.write_all(&self.length.to_be_bytes()).await?;
+        writer.write_all(&self.transaction_id.to_be_bytes()).await?;
 
         Ok(())
     }
@@ -85,17 +93,54 @@ impl NetworkMessageHeader {
 }
 
 pub struct NetworkDevice {
-    connection: TcpStream,
+    write: tokio::net::tcp::OwnedWriteHalf,
+    pending_requests: Arc<Mutex<HashMap<(u32, [u8; 2]), tokio::sync::oneshot::Sender<Vec<u8>>>>>,
 }
 
 impl NetworkDevice {
-    pub fn new() -> Result<Self, anyhow::Error> {
-        Ok(Self {
-            connection: TcpStream::connect("169.254.2.1:52999")?,
-        })
+    pub async fn new(
+    ) -> Result<(Self, impl Future<Output = Result<(), anyhow::Error>>), anyhow::Error> {
+        let connection = tokio::net::TcpStream::connect("169.254.2.1:52999").await?;
+        let (mut read, write) = connection.into_split();
+        let pending_requests = Arc::new(Mutex::new(HashMap::new()));
+
+        Ok((
+            Self {
+                write,
+                pending_requests: pending_requests.clone(),
+            },
+            async move {
+                let mut header = [0u8; 10];
+
+                loop {
+                    read.read_exact(&mut header).await?;
+
+                    let header = NetworkMessageHeader::from_bytes(&header)?;
+
+                    let mut body = vec![0u8; (header.length - 4) as usize];
+                    read.read_exact(&mut body).await?;
+                    println!("{:#?}", &header);
+                    hexdump::hexdump(&body);
+
+                    let Some(pending_request) = pending_requests
+                        .lock()
+                        .unwrap()
+                        .remove(&(header.transaction_id, header.magic))
+                    else {
+                        continue;
+                        // panic!(
+                        //     "no pending request for transaction id: {}",
+                        //     header.transaction_id
+                        // );
+                    };
+
+                    let _ = pending_request.send(body);
+                }
+            },
+        ))
     }
 
-    pub fn send_message<'a, T: NetworkTransaction<'a>>(
+    pub async fn send_message<'a, T: NetworkTransaction<'a>>(
         &mut self,
         request: T::RequestArgs,
     ) -> Result<T::Response, anyhow::Error> {
@@ -109,39 +154,36 @@ impl NetworkDevice {
             transaction_id: tx_id | 0x80000000,
         };
 
-        header.write(&mut self.connection)?;
-        self.connection.write_all(&body)?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
 
-        let mut header = [0u8; 10];
-        self.connection.read_exact(&mut header)?;
+        self.pending_requests
+            .lock()
+            .unwrap()
+            .insert((tx_id, T::MAGIC), tx);
 
-        let header = NetworkMessageHeader::from_bytes(&header)?;
+        header.write(&mut self.write).await?;
+        self.write.write_all(&body).await?;
 
-        if header.transaction_id != tx_id {
-            let transaction_id = header.transaction_id;
-            bail!("invalid transaction id, got {}, expected: {}", tx_id, transaction_id);
-        }
-
-        if header.magic != T::MAGIC {
-            bail!("invalid magic, got {:?}, expected: {:?}", header.magic, T::MAGIC);
-        }
-
-        let mut body = vec![0u8; (header.length - 4) as usize];
-        self.connection.read_exact(&mut body)?;
+        let body = rx.await?;
 
         Ok(T::Response::deserialize_from(body)?)
     }
 }
 
-#[test]
-fn test() -> Result<(), anyhow::Error> {
-    let mut device = NetworkDevice::new()?;
+#[tokio::test]
+async fn test() -> Result<(), anyhow::Error> {
+    let (mut device, worker) = NetworkDevice::new().await?;
+    let handle = tokio::spawn(worker);
 
-    let response = device.send_message::<GetConfig>(protos::get_config::Request {
-        ..Default::default()
-    })?;
+    let response = device
+        .send_message::<GetConfig>(protos::get_config::Request {
+            ..Default::default()
+        })
+        .await?;
 
     fs::write("./calibration.json", &response.value.data)?;
+
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
     Ok(())
 }
