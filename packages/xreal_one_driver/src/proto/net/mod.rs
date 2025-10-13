@@ -1,17 +1,18 @@
-mod display_stop_osd_render;
-mod dp_get_current_edid_dsp;
-mod dp_set_current_edid_dsp;
-mod dp_set_input_mode;
-mod get_config;
-mod glasses_get_dsp_version;
-mod glasses_get_id;
-mod glasses_get_sw_version;
-mod protos;
-mod set_display_brightness;
-mod set_electrochromic_dimmer;
-mod key_submit_state;
+pub mod display_stop_osd_render;
+pub mod dp_get_current_edid_dsp;
+pub mod dp_set_current_edid_dsp;
+pub mod dp_set_input_mode;
+pub mod get_config;
+pub mod glasses_get_dsp_version;
+pub mod glasses_get_id;
+pub mod glasses_get_sw_version;
+pub mod key_submit_state;
+pub mod protos;
+pub mod set_display_brightness;
+pub mod set_electrochromic_dimmer;
 
 use crate::proto::net::get_config::GetConfig;
+use crate::proto::net::key_submit_state::KeySubmitState;
 use crate::proto::usb::RequestArgs;
 use protobuf::Message;
 use std::borrow::Cow;
@@ -22,7 +23,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs, io};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::proto::net::key_submit_state::KeySubmitState;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -41,7 +41,7 @@ impl<'a> RequestArgs<'a> for RawRequest<'a> {
     }
 }
 
-trait NetworkTransaction<'request> {
+pub trait NetworkTransaction<'request> {
     const MAGIC: [u8; 2];
     type RequestArgs: RequestArgs<'request>;
     type Response: Response;
@@ -76,10 +76,7 @@ impl NetworkMessageHeader {
         magic.copy_from_slice(&buffer[0..2]);
         let length = u32::from_be_bytes([buffer[2], buffer[3], buffer[4], buffer[5]]);
 
-        Ok(Self {
-            magic,
-            length,
-        })
+        Ok(Self { magic, length })
     }
 
     pub async fn write(&self, mut writer: impl AsyncWrite + Unpin) -> Result<(), io::Error> {

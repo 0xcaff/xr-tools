@@ -2,9 +2,10 @@ use clap::{Parser, Subcommand};
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
 use std::time::Duration;
+use xreal_one_driver::proto::net::get_config::GetConfig;
 use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
-use xreal_one_driver::UsbDevice;
+use xreal_one_driver::{NetworkDevice, UsbDevice};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -19,9 +20,11 @@ enum Commands {
         mcu_path: PathBuf,
         pilot_path: PathBuf,
     },
+    GetConfig,
 }
 
-fn main() -> Result<(), anyhow::Error> {
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     match args.command {
@@ -79,6 +82,21 @@ fn main() -> Result<(), anyhow::Error> {
             };
 
             bar.finish();
+
+            Ok(())
+        }
+
+        Commands::GetConfig => {
+            let (mut device, task) = NetworkDevice::new().await?;
+            tokio::spawn(task);
+
+            let response = device
+                .send_message::<GetConfig>(
+                    xreal_one_driver::proto::net::protos::get_config::Request::default(),
+                )
+                .await?;
+
+            println!("{}", response.value.data);
 
             Ok(())
         }

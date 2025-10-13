@@ -1,6 +1,6 @@
+use crate::proto::net::{InboundRequest, Response};
 use anyhow::format_err;
 use strum::FromRepr;
-use crate::proto::net::{InboundRequest, Response};
 
 #[derive(Debug)]
 pub struct KeySubmitState {
@@ -38,10 +38,11 @@ impl Response for KeySubmitState {
         let hmd_time_nanos_device = u32::from_le_bytes(buffer[8..12].try_into()?);
 
         Ok(Self {
-            key_type: KeyType::from_repr(key_type).ok_or_else(|| format_err!("unknown key type {}", key_type))?,
-            key_state: KeyState::from_repr(key_state).ok_or_else(|| format_err!("unknown key state {}", key_state))?,
+            key_type: KeyType::from_repr(key_type)
+                .ok_or_else(|| format_err!("unknown key type {}", key_type))?,
+            key_state: KeyState::from_repr(key_state)
+                .ok_or_else(|| format_err!("unknown key state {}", key_state))?,
             hmd_time_nanos_device,
         })
-
     }
 }
