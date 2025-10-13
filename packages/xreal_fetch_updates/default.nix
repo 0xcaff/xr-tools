@@ -33,8 +33,6 @@ flake-utils.lib.eachDefaultSystem (
         );
   in
   {
-    packages.xreal_fetch_updates = (
-      pythonSet.mkVirtualEnv "xreal_fetch_updates" uvWorkspace.deps.all
-    );
+    packages.xreal_fetch_updates = (pythonSet.mkVirtualEnv "xreal_fetch_updates" uvWorkspace.deps.all);
   }
 )

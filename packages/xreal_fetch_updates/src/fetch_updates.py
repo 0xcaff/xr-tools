@@ -10,24 +10,20 @@ BASE_URL = "https://app-api.xreal.com/api/nebula/v1/isc/device/package"
 
 def run(args):
     hardware_codes = [
-        2, # xreal air
-
+        2,  # xreal air
         # xreal air 2 and xreal air 2 pro
         3,
         4,
-
-        5, # xreal air 2 ultra
-
-        6, # xreal one pro
-        7, # xreal one
+        5,  # xreal air 2 ultra
+        6,  # xreal one pro
+        7,  # xreal one
     ]
-
 
     for hardware_code in hardware_codes:
         params = {
             "packageName": "ai.nreal.web",
             "hardwareCode": hardware_code,
-            "versionCode": 1
+            "versionCode": 1,
         }
 
         url = f"{BASE_URL}?{urllib.parse.urlencode(params)}"
