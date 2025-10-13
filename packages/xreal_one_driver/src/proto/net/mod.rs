@@ -126,7 +126,6 @@ impl NetworkDevice {
                     read.read_exact(&mut header).await?;
 
                     let header = NetworkMessageHeader::from_bytes(&header)?;
-                    println!("{:#?}", header);
 
                     match header.magic {
                         KeySubmitState::MAGIC => {
@@ -137,7 +136,7 @@ impl NetworkDevice {
                             println!("{:#?}", from);
                         }
                         _ => {
-                            let transaction_id = read.read_u32_le().await?;
+                            let transaction_id = read.read_u32().await?;
                             let mut body = vec![0u8; (header.length - 4) as usize];
                             read.read_exact(&mut body).await?;
 
@@ -146,11 +145,10 @@ impl NetworkDevice {
                                 .unwrap()
                                 .remove(&(transaction_id, header.magic))
                             else {
-                                // panic!(
-                                //     "no pending request for transaction id: {}",
-                                //     transaction_id
-                                // );
-                                continue;
+                                panic!(
+                                    "no pending request for transaction id: {:x}",
+                                    transaction_id
+                                );
                             };
 
                             let _ = pending_request.send(body);
