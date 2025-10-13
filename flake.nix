@@ -30,7 +30,7 @@
       ...
     }:
     flake-utils.lib.meld inputs [
-      ./packages/xreal_one_fetch_updates
+      ./packages/xreal_fetch_updates
       ./nix/fmt.nix
     ];
 }
