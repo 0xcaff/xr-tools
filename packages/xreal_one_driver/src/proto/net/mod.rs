@@ -11,7 +11,6 @@ pub mod protos;
 pub mod set_display_brightness;
 pub mod set_electrochromic_dimmer;
 
-use crate::proto::net::get_config::GetConfig;
 use crate::proto::net::key_submit_state::KeySubmitState;
 use crate::proto::usb::RequestArgs;
 use protobuf::Message;
@@ -20,8 +19,8 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::{fs, io};
+use std::io;
+use strum::FromRepr;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[derive(Debug)]
@@ -102,12 +101,12 @@ impl NetworkTransactionMessageHeader {
     }
 }
 
-pub struct NetworkDevice {
+pub struct ControlNetworkDevice {
     write: tokio::net::tcp::OwnedWriteHalf,
     pending_requests: Arc<Mutex<HashMap<(u32, [u8; 2]), tokio::sync::oneshot::Sender<Vec<u8>>>>>,
 }
 
-impl NetworkDevice {
+impl ControlNetworkDevice {
     pub async fn new(
     ) -> Result<(Self, impl Future<Output = Result<(), anyhow::Error>>), anyhow::Error> {
         let connection = tokio::net::TcpStream::connect("169.254.2.1:52999").await?;
@@ -191,20 +190,115 @@ impl NetworkDevice {
     }
 }
 
+pub struct ReportsNetworkDevice {
+    connection: tokio::net::TcpStream,
+}
+
+impl ReportsNetworkDevice {
+    pub async fn new() -> Result<Self, anyhow::Error> {
+        let mut connection = tokio::net::TcpStream::connect("169.254.2.1:52998").await?;
+
+        loop {
+            let mut header = [0u8; 6];
+
+            connection.read_exact(&mut header).await?;
+
+            let header = NetworkMessageHeader::from_bytes(&header)?;
+
+            let mut body = vec![0u8; header.length as usize];
+            connection.read_exact(&mut body).await?;
+
+            match header.magic {
+                ReportPacket::MAGIC => {
+                    let body = ReportPacket::deserialize_from(body)?;
+                    println!("{:#?}", body);
+                }
+                _ => {
+                    panic!("{:?}", header.magic);
+                    continue;
+                }
+            }
+        }
+    }
+}
+
+#[derive(FromRepr, Debug)]
+#[repr(u32)]
+enum ReportType {
+    IMU = 0x0000000B,
+    Magnometer = 0x00000004,
+}
+
+#[derive(Debug)]
+struct ReportPacket {
+    device_id: u64,
+    hmd_time_nanos_device: u64,
+    report_type: ReportType,
+    gx: f32,
+    gy: f32,
+    gz: f32,
+    ax: f32,
+    ay: f32,
+    az: f32,
+    mx: f32,
+    my: f32,
+    mz: f32,
+    temperature: f32,
+    imu_id: u8,
+    frame_id: [u8; 3],
+}
+
+impl Response for ReportPacket {
+    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
+        assert_eq!(buffer.len(), 128);
+
+        let device_id = u64::from_le_bytes(buffer[0..0x8].try_into()?);
+        let hmd_time_nanos_device = u64::from_le_bytes(buffer[0x8..0x10].try_into()?);
+        let report_type = u32::from_le_bytes(buffer[0x18..0x1c].try_into()?);
+        let report_type = ReportType::from_repr(report_type)
+            .ok_or_else(|| anyhow::anyhow!("unknown report type: {:x}", report_type))?;
+
+        let gx = f32::from_le_bytes(buffer[0x1c..0x20].try_into()?);
+        let gy = f32::from_le_bytes(buffer[0x20..0x24].try_into()?);
+        let gz = f32::from_le_bytes(buffer[0x24..0x28].try_into()?);
+        let ax = f32::from_le_bytes(buffer[0x28..0x2c].try_into()?);
+        let ay = f32::from_le_bytes(buffer[0x2c..0x30].try_into()?);
+        let az = f32::from_le_bytes(buffer[0x30..0x34].try_into()?);
+        let mx = f32::from_le_bytes(buffer[0x34..0x38].try_into()?);
+        let my = f32::from_le_bytes(buffer[0x38..0x3c].try_into()?);
+        let mz = f32::from_le_bytes(buffer[0x3c..0x40].try_into()?);
+        let temperature = f32::from_le_bytes(buffer[0x40..0x44].try_into()?);
+
+        let imu_id = buffer[0x44];
+        let frame_id = buffer[0x45..0x48].try_into()?;
+
+        Ok(Self {
+            device_id,
+            hmd_time_nanos_device,
+            report_type,
+            gx,
+            gy,
+            gz,
+            ax,
+            ay,
+            az,
+            mx,
+            my,
+            mz,
+            temperature,
+            imu_id,
+            frame_id,
+        })
+    }
+}
+
+impl InboundRequest for ReportPacket {
+    const MAGIC: [u8; 2] = [0x28, 0x36];
+}
+
 #[tokio::test]
 async fn test() -> Result<(), anyhow::Error> {
-    let (mut device, worker) = NetworkDevice::new().await?;
-    let handle = tokio::spawn(worker);
-
-    let response = device
-        .send_message::<GetConfig>(protos::get_config::Request {
-            ..Default::default()
-        })
-        .await?;
-
-    fs::write("./calibration.json", &response.value.data)?;
-
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    ReportsNetworkDevice::new().await?;
 
     Ok(())
 }
