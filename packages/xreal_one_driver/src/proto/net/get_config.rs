@@ -43,6 +43,8 @@ pub struct Point {
 #[serde(try_from = "DisplayDistortionConstructor")]
 pub struct DisplayDistortion(pub Matrix<Point, Dyn, Dyn, VecStorage<Point, Dyn, Dyn>>);
 
+// todo: helper to apply distortion
+
 #[derive(Deserialize)]
 struct DisplayDistortionConstructor {
     data: Vec<f64>,
