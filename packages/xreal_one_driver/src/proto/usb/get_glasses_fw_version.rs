@@ -1,6 +1,6 @@
 use crate::proto::net::RawRequest;
 use crate::proto::usb::{Empty, Response, UsbTransaction};
-use anyhow::Error;
+use crate::UsbDevice;
 
 pub struct GetGlassesMcuFwVersion;
 
@@ -36,9 +36,24 @@ pub struct GetGlassesFwVersionResponse {
 }
 
 impl Response for GetGlassesFwVersionResponse {
-    fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
+    fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {
         let version = String::from_utf8_lossy(&buffer).to_string();
 
         Ok(Self { version })
     }
+}
+
+impl UsbDevice {
+    pub fn get_mcu_fw_version(&self) -> Result<String, anyhow::Error> {
+        Ok(self.send_message::<GetGlassesMcuFwVersion>(Empty)?.version)
+    }
+
+    pub fn get_dsp_fw_version(&self) -> Result<String, anyhow::Error> {
+        Ok(self.send_message::<GetGlassesDspFwVersion>(Empty)?.version)
+    }
+
+    // todo: figure out wtf goes here
+    // pub fn get_pilot_fw_version(&self) -> Result<String, anyhow::Error> {
+    // Ok(self.send_message::<GetGlassesPilotFw>(RawRequest(&[]))?.version)
+    // }
 }

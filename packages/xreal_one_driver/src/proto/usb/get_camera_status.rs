@@ -1,4 +1,5 @@
 use crate::proto::usb::{Empty, Response, UsbTransaction};
+use crate::UsbDevice;
 use anyhow::{anyhow, Error};
 
 pub struct GetCameraStatus;
@@ -24,5 +25,11 @@ impl Response for GetCameraStatusResponse {
         };
 
         Ok(Self { plugged_in })
+    }
+}
+
+impl UsbDevice {
+    pub fn get_camera_plugged(&self) -> Result<bool, anyhow::Error> {
+        Ok(self.send_message::<GetCameraStatus>(Empty)?.plugged_in)
     }
 }

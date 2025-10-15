@@ -1,5 +1,25 @@
-use crate::proto::usb::{Empty, Response, UsbTransaction};
+use crate::proto::usb::{Empty, RequestArgs, Response, UsbTransaction};
+use crate::UsbDevice;
 use modular_bitfield::bitfield;
+use std::borrow::Cow;
+
+pub struct SetUsbConfigAll;
+
+impl<'req> UsbTransaction<'req> for SetUsbConfigAll {
+    const COMMAND_ID: [u8; 2] = [0xD3, 0x00];
+    type RequestArgs = SetUsbConfigAllRequest;
+    type Response = ();
+}
+
+pub struct SetUsbConfigAllRequest {
+    pub config: UsbConfigList,
+}
+
+impl<'a> RequestArgs<'a> for SetUsbConfigAllRequest {
+    fn as_bytes(&self) -> Result<Cow<'a, [u8]>, anyhow::Error> {
+        Ok(Cow::Owned(self.config.into_bytes().to_vec()))
+    }
+}
 
 pub struct GetUsbConfigAll;
 
@@ -40,5 +60,17 @@ impl Response for GetUsbConfigAllResponse {
         let bytes: [u8; 4] = buffer.try_into()?;
         let config = UsbConfigList::from_bytes(bytes);
         Ok(Self { config })
+    }
+}
+
+impl UsbDevice {
+    pub fn get_usb_config(&self) -> Result<UsbConfigList, anyhow::Error> {
+        Ok(self.send_message::<GetUsbConfigAll>(Empty)?.config)
+    }
+
+    pub fn set_usb_config(&self, config: UsbConfigList) -> Result<(), anyhow::Error> {
+        self.send_message::<SetUsbConfigAll>(SetUsbConfigAllRequest { config })?;
+
+        Ok(())
     }
 }

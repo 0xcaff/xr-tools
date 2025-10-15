@@ -1,16 +1,16 @@
-use anyhow::{bail, Error};
+use anyhow::bail;
 use bytemuck::{Pod, Zeroable};
-use protobuf::Message;
 use std::borrow::Cow;
 use std::mem::offset_of;
 
 pub mod get_camera_status;
 pub mod get_glasses_fw_version;
 pub mod get_internal_code;
-pub mod get_usb_config_all;
 pub mod mcu_update;
 pub mod pilot_update;
-pub mod set_usb_config_all;
+pub mod usb_config;
+
+pub use usb_config::UsbConfigList;
 
 pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
@@ -38,7 +38,7 @@ pub trait Response: Sized {
 pub struct RawResponse(pub Vec<u8>);
 
 impl Response for RawResponse {
-    fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
+    fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {
         Ok(Self(buffer.to_vec()))
     }
 }

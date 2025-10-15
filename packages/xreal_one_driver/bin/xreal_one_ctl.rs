@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
-use xreal_one_driver::{ControlNetworkDevice, UsbDevice};
+use xreal_one_driver::{ControlNetworkDevice, UsbConfigList, UsbDevice};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -21,6 +21,8 @@ enum Commands {
         pilot_path: PathBuf,
     },
     GetConfig,
+    Info,
+    EnableCameras,
 }
 
 #[tokio::main]
@@ -92,6 +94,32 @@ async fn main() -> Result<(), anyhow::Error> {
 
             let response = device.get_config().await?;
             println!("{}", response);
+
+            Ok(())
+        }
+        Commands::Info => {
+            let api = hidapi::HidApi::new()?;
+            let device = UsbDevice::open(&api)?;
+
+            let dsp_fw_version = device.get_dsp_fw_version()?;
+            println!("dsp_fw_version: {}", dsp_fw_version);
+
+            let mcu_fw_version = device.get_mcu_fw_version()?;
+            println!("mcu_fw_version: {}", mcu_fw_version);
+
+            let camera_plugged = device.get_camera_plugged()?;
+            println!("camera plugged: {:?}", camera_plugged);
+
+            let usb_config = device.get_usb_config()?;
+            println!("usb config: {:#?}", usb_config);
+
+            Ok(())
+        }
+        Commands::EnableCameras => {
+            let api = hidapi::HidApi::new()?;
+            let device = UsbDevice::open(&api)?;
+
+            device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
 
             Ok(())
         }

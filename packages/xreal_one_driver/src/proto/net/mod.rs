@@ -16,7 +16,6 @@ pub mod set_elechromic_dimmer;
 use crate::proto::usb::RequestArgs;
 use futures::TryStreamExt;
 use std::borrow::Cow;
-use tokio::io::AsyncWriteExt;
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
