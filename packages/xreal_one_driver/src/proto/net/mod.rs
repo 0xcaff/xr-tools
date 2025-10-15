@@ -8,21 +8,23 @@ pub mod glasses_get_id;
 pub mod glasses_get_sw_version;
 pub mod key_submit_state;
 mod props;
+mod reports;
 pub mod set_display_brightness;
 pub mod set_electrochromic_dimmer;
 
-use crate::proto::net::display_stop_osd_render::{DisplayStopOSDRender, SceneMode};
-use crate::proto::net::key_submit_state::KeySubmitState;
+use crate::proto::net::key_submit_state::KeyStateChangeMessage;
 use crate::proto::net::props::{SetNumericProperty, SetPropertyRequest};
+use crate::proto::net::set_display_brightness::{DisplayBrightness, SetDisplayBrightness};
 use crate::proto::usb::RequestArgs;
+use anyhow::Error;
+use futures::{pin_mut, Stream, StreamExt, TryStream, TryStreamExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::future::Future;
 use std::io;
+use std::pin::pin;
 use std::sync::{Arc, Mutex};
-use strum::FromRepr;
 use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::proto::net::set_display_brightness::{DisplayBrightness, SetDisplayBrightness};
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -47,7 +49,7 @@ pub trait NetworkTransaction<'request> {
     type Response: Response;
 }
 
-trait InboundRequest: Response {
+trait InboundMessage: Response {
     const MAGIC: [u8; 2];
 }
 
@@ -98,55 +100,82 @@ pub struct ControlNetworkDevice {
     pending_requests: Arc<Mutex<HashMap<(u32, [u8; 2]), tokio::sync::oneshot::Sender<Vec<u8>>>>>,
 }
 
+#[derive(Debug)]
+pub enum InboundMessageType {
+    KeyStateChange(KeyStateChangeMessage),
+    Unknown(UnknownMessage),
+}
+
+#[derive(Debug)]
+pub struct UnknownMessage {
+    pub magic: [u8; 2],
+    pub bytes: Vec<u8>,
+}
+
 impl ControlNetworkDevice {
-    pub async fn new(
-    ) -> Result<(Self, impl Future<Output = Result<(), anyhow::Error>>), anyhow::Error> {
+    pub async fn new() -> Result<
+        (
+            Self,
+            impl Stream<Item = Result<InboundMessageType, anyhow::Error>>,
+        ),
+        anyhow::Error,
+    > {
         let connection = tokio::net::TcpStream::connect("169.254.2.1:52999").await?;
-        let (mut read, write) = connection.into_split();
+        let (read, write) = connection.into_split();
         let pending_requests = Arc::new(Mutex::new(HashMap::new()));
+
+        let header = [0u8; 6];
 
         Ok((
             Self {
                 write,
                 pending_requests: pending_requests.clone(),
             },
-            async move {
-                let mut header = [0u8; 6];
+            futures::stream::unfold((header, read), move |(header, mut read)| {
+                let pending_requests = pending_requests.clone();
 
-                loop {
-                    read.read_exact(&mut header).await?;
+                async move {
+                    let result = (async || -> Result<InboundMessageType, anyhow::Error> {
+                        loop {
+                            let header = NetworkMessageHeader::from_bytes(&header)?;
 
-                    let header = NetworkMessageHeader::from_bytes(&header)?;
+                            match header.magic {
+                                KeyStateChangeMessage::MAGIC => {
+                                    let mut body = vec![0u8; (header.length) as usize];
+                                    read.read_exact(&mut body).await?;
 
-                    match header.magic {
-                        KeySubmitState::MAGIC => {
-                            let mut body = vec![0u8; (header.length) as usize];
-                            read.read_exact(&mut body).await?;
+                                    let from = KeyStateChangeMessage::deserialize_from(body)?;
+                                    return Ok(InboundMessageType::KeyStateChange(from));
+                                }
+                                _ => {
+                                    let transaction_id = read.read_u32().await?;
+                                    let mut body = vec![0u8; (header.length - 4) as usize];
+                                    read.read_exact(&mut body).await?;
 
-                            let from = KeySubmitState::deserialize_from(body)?;
-                            println!("{:#?}", from);
+                                    let Some(pending_request) = pending_requests
+                                        .lock()
+                                        .unwrap()
+                                        .remove(&(transaction_id, header.magic))
+                                    else {
+                                        let mut body_new = transaction_id.to_be_bytes().to_vec();
+                                        body_new.append(&mut body);
+
+                                        return Ok(InboundMessageType::Unknown(UnknownMessage {
+                                            bytes: body_new,
+                                            magic: header.magic,
+                                        }));
+                                    };
+
+                                    let _ = pending_request.send(body);
+                                }
+                            }
                         }
-                        _ => {
-                            let transaction_id = read.read_u32().await?;
-                            let mut body = vec![0u8; (header.length - 4) as usize];
-                            read.read_exact(&mut body).await?;
+                    })()
+                    .await;
 
-                            let Some(pending_request) = pending_requests
-                                .lock()
-                                .unwrap()
-                                .remove(&(transaction_id, header.magic))
-                            else {
-                                panic!(
-                                    "no pending request for transaction id: {:x}",
-                                    transaction_id
-                                );
-                            };
-
-                            let _ = pending_request.send(body);
-                        }
-                    }
+                    Some((result, (header, read)))
                 }
-            },
+            }),
         ))
     }
 
@@ -155,7 +184,6 @@ impl ControlNetworkDevice {
         request: T::RequestArgs,
     ) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
-        println!("{:#x?}", body);
 
         let tx_id = 1;
 
@@ -178,124 +206,27 @@ impl ControlNetworkDevice {
         self.write.write_all(&body).await?;
 
         let body = rx.await?;
-        println!("{:#?}", body);
 
         Ok(T::Response::deserialize_from(body)?)
     }
 }
 
-pub struct ReportsNetworkDevice {
-    connection: tokio::net::TcpStream,
-}
-
-impl ReportsNetworkDevice {
-    pub async fn new() -> Result<Self, anyhow::Error> {
-        let mut connection = tokio::net::TcpStream::connect("169.254.2.1:52998").await?;
-
-        loop {
-            let mut header = [0u8; 6];
-
-            connection.read_exact(&mut header).await?;
-
-            let header = NetworkMessageHeader::from_bytes(&header)?;
-
-            let mut body = vec![0u8; header.length as usize];
-            connection.read_exact(&mut body).await?;
-
-            match header.magic {
-                ReportPacket::MAGIC => {
-                    let body = ReportPacket::deserialize_from(body)?;
-                    println!("{:#?}", body);
-                }
-                _ => {
-                    panic!("{:?}", header.magic);
-                    continue;
-                }
-            }
-        }
-    }
-}
-
-#[derive(FromRepr, Debug)]
-#[repr(u32)]
-enum ReportType {
-    IMU = 0x0000000B,
-    Magnometer = 0x00000004,
-}
-
-#[derive(Debug)]
-struct ReportPacket {
-    device_id: u64,
-    hmd_time_nanos_device: u64,
-    report_type: ReportType,
-    gx: f32,
-    gy: f32,
-    gz: f32,
-    ax: f32,
-    ay: f32,
-    az: f32,
-    mx: f32,
-    my: f32,
-    mz: f32,
-    temperature: f32,
-    imu_id: u8,
-    frame_id: [u8; 3],
-}
-
-impl Response for ReportPacket {
-    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
-        assert_eq!(buffer.len(), 128);
-
-        let device_id = u64::from_le_bytes(buffer[0..0x8].try_into()?);
-        let hmd_time_nanos_device = u64::from_le_bytes(buffer[0x8..0x10].try_into()?);
-        let report_type = u32::from_le_bytes(buffer[0x18..0x1c].try_into()?);
-        let report_type = ReportType::from_repr(report_type)
-            .ok_or_else(|| anyhow::anyhow!("unknown report type: {:x}", report_type))?;
-
-        let gx = f32::from_le_bytes(buffer[0x1c..0x20].try_into()?);
-        let gy = f32::from_le_bytes(buffer[0x20..0x24].try_into()?);
-        let gz = f32::from_le_bytes(buffer[0x24..0x28].try_into()?);
-        let ax = f32::from_le_bytes(buffer[0x28..0x2c].try_into()?);
-        let ay = f32::from_le_bytes(buffer[0x2c..0x30].try_into()?);
-        let az = f32::from_le_bytes(buffer[0x30..0x34].try_into()?);
-        let mx = f32::from_le_bytes(buffer[0x34..0x38].try_into()?);
-        let my = f32::from_le_bytes(buffer[0x38..0x3c].try_into()?);
-        let mz = f32::from_le_bytes(buffer[0x3c..0x40].try_into()?);
-        let temperature = f32::from_le_bytes(buffer[0x40..0x44].try_into()?);
-
-        let imu_id = buffer[0x44];
-        let frame_id = buffer[0x45..0x48].try_into()?;
-
-        Ok(Self {
-            device_id,
-            hmd_time_nanos_device,
-            report_type,
-            gx,
-            gy,
-            gz,
-            ax,
-            ay,
-            az,
-            mx,
-            my,
-            mz,
-            temperature,
-            imu_id,
-            frame_id,
-        })
-    }
-}
-
-impl InboundRequest for ReportPacket {
-    const MAGIC: [u8; 2] = [0x28, 0x36];
-}
-
 #[tokio::test]
 async fn test() -> Result<(), anyhow::Error> {
-    let (mut device, _task) = ControlNetworkDevice::new().await?;
-    tokio::spawn(_task);
+    let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
+
+    tokio::spawn(async move {
+        pin_mut!(inbound_messages);
+
+        while let Some(message) = inbound_messages.try_next().await.unwrap() {
+            println!("{:#?}", message);
+        }
+    });
+
     let response = device
-        .send_message::<SetDisplayBrightness>(SetPropertyRequest{value: SetNumericProperty(DisplayBrightness(1))})
+        .send_message::<SetDisplayBrightness>(SetPropertyRequest {
+            value: SetNumericProperty(DisplayBrightness(1)),
+        })
         .await?;
 
     println!("{:#?}", response);

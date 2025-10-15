@@ -1,15 +1,15 @@
-use crate::proto::net::{InboundRequest, Response};
+use crate::proto::net::{InboundMessage, Response};
 use anyhow::format_err;
 use strum::FromRepr;
 
 #[derive(Debug)]
-pub struct KeySubmitState {
-    key_type: KeyType,
-    key_state: KeyState,
-    hmd_time_nanos_device: u32,
+pub struct KeyStateChangeMessage {
+    pub key_type: KeyType,
+    pub key_state: KeyState,
+    pub hmd_time_nanos_device: u32,
 }
 
-impl InboundRequest for KeySubmitState {
+impl InboundMessage for KeyStateChangeMessage {
     const MAGIC: [u8; 2] = [0x27, 0x2e];
 }
 
@@ -29,7 +29,7 @@ pub enum KeyState {
     Up = 2,
 }
 
-impl Response for KeySubmitState {
+impl Response for KeyStateChangeMessage {
     fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
         assert_eq!(buffer.len(), 64);
 

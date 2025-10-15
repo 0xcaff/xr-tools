@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use futures::StreamExt;
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -87,14 +88,10 @@ async fn main() -> Result<(), anyhow::Error> {
         }
 
         Commands::GetConfig => {
-            let (mut device, task) = ControlNetworkDevice::new().await?;
-            tokio::spawn(task);
+            let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
+            tokio::spawn(inbound_messages.for_each(|_| async {}));
 
-            let response = device
-                .send_message::<GetConfig>(
-                    xreal_one_driver::proto::net::protos::get_config::Request::default(),
-                )
-                .await?;
+            let response = device.send_message::<GetConfig>(GetConfig).await?;
 
             println!("{}", response.value.data);
 
