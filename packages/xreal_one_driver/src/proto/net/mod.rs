@@ -7,21 +7,22 @@ pub mod glasses_get_dsp_version;
 pub mod glasses_get_id;
 pub mod glasses_get_sw_version;
 pub mod key_submit_state;
-pub mod protos;
+mod props;
 pub mod set_display_brightness;
 pub mod set_electrochromic_dimmer;
 
+use crate::proto::net::display_stop_osd_render::{DisplayStopOSDRender, SceneMode};
 use crate::proto::net::key_submit_state::KeySubmitState;
+use crate::proto::net::props::{SetNumericProperty, SetPropertyRequest};
 use crate::proto::usb::RequestArgs;
-use protobuf::Message;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::future::Future;
-use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
 use std::io;
+use std::sync::{Arc, Mutex};
 use strum::FromRepr;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::proto::net::set_display_brightness::{DisplayBrightness, SetDisplayBrightness};
 
 #[derive(Debug)]
 pub struct RawResponse(pub Vec<u8>);
@@ -52,15 +53,6 @@ trait InboundRequest: Response {
 
 pub trait Response: Sized {
     fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error>;
-}
-
-impl<T> Response for T
-where
-    T: Message,
-{
-    fn deserialize_from(buffer: Vec<u8>) -> Result<Self, anyhow::Error> {
-        Ok(T::parse_from_bytes(&buffer)?)
-    }
 }
 
 #[derive(Debug)]
@@ -163,6 +155,7 @@ impl ControlNetworkDevice {
         request: T::RequestArgs,
     ) -> Result<T::Response, anyhow::Error> {
         let body = request.as_bytes()?;
+        println!("{:#x?}", body);
 
         let tx_id = 1;
 
@@ -185,6 +178,7 @@ impl ControlNetworkDevice {
         self.write.write_all(&body).await?;
 
         let body = rx.await?;
+        println!("{:#?}", body);
 
         Ok(T::Response::deserialize_from(body)?)
     }
@@ -298,7 +292,13 @@ impl InboundRequest for ReportPacket {
 
 #[tokio::test]
 async fn test() -> Result<(), anyhow::Error> {
-    ReportsNetworkDevice::new().await?;
+    let (mut device, _task) = ControlNetworkDevice::new().await?;
+    tokio::spawn(_task);
+    let response = device
+        .send_message::<SetDisplayBrightness>(SetPropertyRequest{value: SetNumericProperty(DisplayBrightness(1))})
+        .await?;
+
+    println!("{:#?}", response);
 
     Ok(())
 }

@@ -1,12 +1,24 @@
-use crate::proto::net::{protos, NetworkTransaction};
+use crate::proto::net::props::{EmptyPropertyResponse, SetNumericProperty, SetPropertyRequest};
+use crate::proto::net::NetworkTransaction;
+use strum::FromRepr;
 
 pub struct DpSetInputMode;
 
 impl NetworkTransaction<'static> for DpSetInputMode {
     const MAGIC: [u8; 2] = [0x28, 0x22];
+    type RequestArgs = SetPropertyRequest<SetNumericProperty<InputMode>>;
+    type Response = EmptyPropertyResponse;
+}
 
-    // 1 = SBS
-    // 0 = regular
-    type RequestArgs = protos::dp_get_current_edid_bsp::Request;
-    type Response = protos::dp_get_current_edid_bsp::Response;
+#[derive(Debug, Clone, Copy, FromRepr)]
+#[repr(u8)]
+pub enum InputMode {
+    Regular = 0,
+    SideBySide = 1,
+}
+
+impl Into<u8> for InputMode {
+    fn into(self) -> u8 {
+        self as u8
+    }
 }

@@ -1,9 +1,13 @@
-use crate::proto::net::{protos, NetworkTransaction};
+use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
+use crate::proto::net::props::{
+    EmptyPropertyResponse, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
+};
+use crate::proto::net::NetworkTransaction;
 
 pub struct DpSetCurrentEdidDsp;
 
 impl NetworkTransaction<'static> for DpSetCurrentEdidDsp {
     const MAGIC: [u8; 2] = [0x27, 0x5f];
-    type RequestArgs = protos::dp_get_current_edid_bsp::Request;
-    type Response = protos::dp_get_current_edid_bsp::Response;
+    type RequestArgs = SetPropertyRequest<SetNumericProperty<DisplayConfiguration>>;
+    type Response = EmptyPropertyResponse;
 }

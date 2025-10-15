@@ -31,13 +31,6 @@ pub trait RequestArgs<'a> {
     }
 }
 
-impl<T: Message> RequestArgs<'static> for T {
-    fn as_bytes(&self) -> Result<Cow<'static, [u8]>, anyhow::Error> {
-        let bytes = self.write_to_bytes()?;
-        Ok(Cow::Owned(bytes))
-    }
-}
-
 pub trait Response: Sized {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error>;
 }

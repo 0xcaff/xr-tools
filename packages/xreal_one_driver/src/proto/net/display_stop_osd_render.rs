@@ -1,9 +1,24 @@
-use crate::proto::net::{protos, NetworkTransaction};
+use crate::proto::net::props::{EmptyPropertyResponse, SetNumericProperty, SetPropertyRequest};
+use crate::proto::net::NetworkTransaction;
+use strum::FromRepr;
 
 pub struct DisplayStopOSDRender;
 
 impl NetworkTransaction<'static> for DisplayStopOSDRender {
     const MAGIC: [u8; 2] = [0x28, 0x29];
-    type RequestArgs = protos::set_scene_mode::Request;
-    type Response = protos::set_scene_mode::Response;
+    type RequestArgs = SetPropertyRequest<SetNumericProperty<SceneMode>>;
+    type Response = EmptyPropertyResponse;
+}
+
+#[derive(Debug, Clone, Copy, FromRepr)]
+#[repr(u8)]
+pub enum SceneMode {
+    ButtonsEnabled = 0,
+    ButtonsDisabled = 1,
+}
+
+impl Into<u8> for SceneMode {
+    fn into(self) -> u8 {
+        self as u8
+    }
 }
