@@ -9,7 +9,6 @@ impl NetworkTransaction<'static> for SetDisplayBrightness {
     type Response = EmptyPropertyResponse;
 }
 
-/// A value between 0 and 9
 #[derive(Copy, Clone)]
 pub struct DisplayBrightness(pub u8);
 

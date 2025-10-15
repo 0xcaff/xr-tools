@@ -82,8 +82,8 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
             bail!("unexpected end of stream");
         };
 
-        if tag != ((4 << 4) | WireType::LengthDelimited as u32) {
-            bail!("unexpected tag: {}", tag);
+        if tag != ((4 << 3) | WireType::LengthDelimited as u32) {
+            bail!("unexpected tag: 0x{:x}", tag);
         }
 
         let len = is.read_raw_varint64()?;
@@ -91,8 +91,8 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
             bail!("unexpected end of stream");
         };
 
-        if tag != ((2 << 4) | V::WIRE_TYPE as u32) {
-            bail!("unexpected tag: {}", tag);
+        if tag != ((4 << 2) | V::WIRE_TYPE as u32) {
+            bail!("unexpected tag: 0x{:x}", tag);
         }
 
         let value = V::read(is)?;
@@ -124,7 +124,7 @@ impl ProtobufRead for EmptyPropertyResponse {
         };
 
         if tag != ((4 << 3) | WireType::LengthDelimited as u32) {
-            bail!("unexpected tag: {:x}", tag);
+            bail!("unexpected tag: 0x{:x}", tag);
         }
 
         let len = is.read_raw_varint64()?;

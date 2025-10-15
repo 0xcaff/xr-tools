@@ -2,9 +2,9 @@ use crate::proto::net::props::{EmptyPropertyResponse, SetNumericProperty, SetPro
 use crate::proto::net::NetworkTransaction;
 use strum::FromRepr;
 
-pub struct DisplayStopOSDRender;
+pub struct SetSceneMode;
 
-impl NetworkTransaction<'static> for DisplayStopOSDRender {
+impl NetworkTransaction<'static> for SetSceneMode {
     const MAGIC: [u8; 2] = [0x28, 0x29];
     type RequestArgs = SetPropertyRequest<SetNumericProperty<SceneMode>>;
     type Response = EmptyPropertyResponse;

@@ -3,7 +3,6 @@ use futures::StreamExt;
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
 use std::time::Duration;
-use xreal_one_driver::proto::net::get_config::GetConfig;
 use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
 use xreal_one_driver::{ControlNetworkDevice, UsbDevice};
@@ -91,9 +90,8 @@ async fn main() -> Result<(), anyhow::Error> {
             let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
             tokio::spawn(inbound_messages.for_each(|_| async {}));
 
-            let response = device.send_message::<GetConfig>(GetConfig).await?;
-
-            println!("{}", response.value.data);
+            let response = device.get_config().await?;
+            println!("{}", response);
 
             Ok(())
         }

@@ -1,5 +1,6 @@
-use crate::proto::net::{InboundMessage, NetworkMessageHeader, Response, UnknownMessage};
-use futures::{Stream, TryStream};
+use crate::proto::net::control::{NetworkMessageHeader, UnknownMessage};
+use crate::proto::net::{InboundMessage, Response};
+use futures::Stream;
 use strum::FromRepr;
 use tokio::io::AsyncReadExt;
 
