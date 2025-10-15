@@ -1,3 +1,4 @@
+pub mod config;
 pub mod control;
 pub mod display_set_scene_mode;
 pub mod dp_get_current_edid_dsp;
