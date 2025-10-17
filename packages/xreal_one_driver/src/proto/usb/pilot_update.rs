@@ -32,7 +32,7 @@ impl UsbTransaction<'static> for PilotUpdateFinish {
 }
 
 pub trait PilotUpdateProgressReporter {
-    fn transmit(&mut self, length: usize) {}
+    fn transmit(&mut self, _length: usize) {}
 }
 
 impl UsbDevice {

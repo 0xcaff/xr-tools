@@ -1,7 +1,7 @@
+use crate::config::Config;
 pub use crate::proto::net::display_set_scene_mode::SceneMode;
 use crate::proto::net::display_set_scene_mode::SetSceneMode;
 pub use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
-use crate::proto::net::dp_get_current_edid_dsp::DpGetCurrentEdidDsp;
 use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
 use crate::proto::net::dp_set_input_mode::DpSetInputMode;
 pub use crate::proto::net::dp_set_input_mode::InputMode;
@@ -222,13 +222,13 @@ impl ControlNetworkDevice {
         Ok(())
     }
 
-    async fn get_display_configuration(&mut self) -> Result<DisplayConfiguration, anyhow::Error> {
-        Ok(self
-            .send_message::<DpGetCurrentEdidDsp>(GetPropertyRequest)
-            .await?
-            .value
-            .0)
-    }
+    // async fn get_display_configuration(&mut self) -> Result<DisplayConfiguration, anyhow::Error> {
+    //     Ok(self
+    //         .send_message::<DpGetCurrentEdidDsp>(GetPropertyRequest)
+    //         .await?
+    //         .value
+    //         .0)
+    // }
 
     pub async fn set_display_configuration(
         &mut self,
@@ -263,10 +263,14 @@ impl ControlNetworkDevice {
             .value)
     }
 
-    pub async fn get_config(&mut self) -> Result<String, anyhow::Error> {
+    pub async fn get_config_raw(&mut self) -> Result<String, anyhow::Error> {
         Ok(self
             .send_message::<GetConfig>(GetPropertyRequest)
             .await?
             .value)
+    }
+
+    pub async fn get_config(&mut self) -> Result<Config, anyhow::Error> {
+        Ok(Config::parse(self.get_config_raw().await?.as_bytes())?)
     }
 }

@@ -1,11 +1,14 @@
+use ahrs::Ahrs;
 use clap::{Parser, Subcommand};
-use futures::StreamExt;
+use futures::{pin_mut, StreamExt};
 use indicatif::ProgressStyle;
+use nalgebra::Vector3;
 use std::path::PathBuf;
 use std::time::Duration;
+use xreal_one_driver::proto::net::reports;
 use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
-use xreal_one_driver::{ControlNetworkDevice, UsbConfigList, UsbDevice};
+use xreal_one_driver::{ControlNetworkDevice, ReportType, UsbConfigList, UsbDevice};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -23,6 +26,7 @@ enum Commands {
     GetConfig,
     Info,
     EnableCameras,
+    Imu,
 }
 
 #[tokio::main]
@@ -92,7 +96,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
             tokio::spawn(inbound_messages.for_each(|_| async {}));
 
-            let response = device.get_config().await?;
+            let response = device.get_config_raw().await?;
             println!("{}", response);
 
             Ok(())
@@ -120,6 +124,47 @@ async fn main() -> Result<(), anyhow::Error> {
             let device = UsbDevice::open(&api)?;
 
             device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
+
+            Ok(())
+        }
+        Commands::Imu => {
+            let reports = reports::listen().await?;
+            pin_mut!(reports);
+
+            // let (mut control, messages) = ControlNetworkDevice::new().await?;
+            // tokio::spawn(messages.for_each(|_| async {}));
+
+            // let config = control.get_config().await?;
+
+            let mut ahrs = ahrs::Madgwick::new(1.0f64 / 1000.0, 0.1);
+
+            while let Some(report) = reports.next().await.transpose()? {
+                let reports::InboundMessageType::Report(report) = report else {
+                    continue;
+                };
+
+                if report.report_type != ReportType::IMU {
+                    continue;
+                }
+
+                println!("{:#?}", report);
+
+                let next = ahrs
+                    .update_imu(
+                        &Vector3::from([report.gx as f64, report.gy as f64, report.gz as f64]),
+                        &Vector3::from([report.ax as f64, report.ay as f64, report.az as f64]),
+                    )
+                    .unwrap();
+
+                let (pitch, yaw, roll) = next.euler_angles();
+
+                println!(
+                    "{:.3} {:.3} {:.3}",
+                    pitch.to_degrees(),
+                    yaw.to_degrees(),
+                    roll.to_degrees()
+                );
+            }
 
             Ok(())
         }

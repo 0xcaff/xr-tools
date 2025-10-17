@@ -1,5 +1,5 @@
 use anyhow::bail;
-use nalgebra::{Dyn, Matrix, VecStorage};
+use nalgebra::{Dyn, Isometry3, Matrix, Quaternion, Translation3, UnitQuaternion, VecStorage};
 use serde::{Deserialize, Deserializer};
 
 #[derive(Deserialize)]
@@ -11,17 +11,21 @@ pub struct Config {
     pub imu: ImuDevice,
 
     #[serde(rename = "RGB_camera", deserialize_with = "deserialize_rgb_camera")]
-    pub rgb_camera: CameraIntrinsicsRadial,
+    pub rgb_camera: Option<CameraIntrinsicsRadial>,
 
     #[serde(rename = "SLAM_camera", deserialize_with = "deserialize_slam_camera")]
-    pub slam_camera: SlamCamera,
+    pub slam_camera: Option<SlamCamera>,
 
     #[serde(deserialize_with = "deserialize_displays_config")]
     pub display: DisplaysConfig,
 
     pub display_distortion: DisplaysDistortion,
+
+    #[serde(with = "last_modified_time_format")]
     pub last_modified_time: time::PrimitiveDateTime,
 }
+
+time::serde::format_description!(last_modified_time_format, PrimitiveDateTime, "[year]-[month]-[day] [hour]:[minute]:[second]");
 
 impl Config {
     pub fn parse(data: &[u8]) -> Result<Self, anyhow::Error> {
@@ -35,7 +39,7 @@ impl Config {
 
         let constructor = serde_json::from_slice::<ConfigConstructor>(data)?;
 
-        if constructor.glasses_version != 1 {
+        if constructor.glasses_version != 8 {
             bail!("unexpected glasses version {}", constructor.glasses_version);
         }
 
@@ -50,9 +54,11 @@ pub struct DisplaysConfig {
 }
 
 pub struct DisplayConfig {
+    // todo: what frame is this in?
     pub k: [f64; 9],
-    pub target_p: [f64; 3],
-    pub target_q: [f64; 4],
+
+    /// Transform of the display in the IMU frame.
+    pub transform: Isometry3<f64>,
 }
 
 fn deserialize_displays_config<'de, D>(deserializer: D) -> Result<DisplaysConfig, D::Error>
@@ -91,18 +97,26 @@ where
         resolution: constructor.resolution,
         left: DisplayConfig {
             k: constructor.k_left_display,
-            target_p: constructor.target_p_left_display,
-            target_q: constructor.target_q_left_display,
+            transform: Isometry3::from_parts(
+                Translation3::from(constructor.target_p_left_display),
+                UnitQuaternion::from_quaternion(Quaternion::from(
+                    constructor.target_q_left_display,
+                )),
+            ),
         },
         right: DisplayConfig {
             k: constructor.k_right_display,
-            target_p: constructor.target_p_right_display,
-            target_q: constructor.target_q_right_display,
+            transform: Isometry3::from_parts(
+                Translation3::from(constructor.target_p_right_display),
+                UnitQuaternion::from_quaternion(Quaternion::from(
+                    constructor.target_q_right_display,
+                )),
+            ),
         },
     })
 }
 
-fn deserialize_rgb_camera<'de, D>(deserializer: D) -> Result<CameraIntrinsicsRadial, D::Error>
+fn deserialize_rgb_camera<'de, D>(deserializer: D) -> Result<Option<CameraIntrinsicsRadial>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -110,41 +124,21 @@ where
     struct Constructor {
         num_of_cameras: usize,
 
-        #[serde(deserialize_with = "deserialize_camera_intrinsics_radial")]
-        device_1: CameraIntrinsicsRadial,
+        device_1: Option<CameraIntrinsicsRadialConstructor>,
     }
 
-    let camera = Constructor::deserialize(deserializer)?;
-    if camera.num_of_cameras != 1 {
-        return Err(serde::de::Error::custom(format!(
-            "unexpected number of cameras {}",
-            camera.num_of_cameras
-        )));
-    }
-
-    Ok(camera.device_1)
-}
-
-#[derive(Deserialize)]
-pub struct SlamCamera {
-    pub imu_p_cam: [f64; 3],
-    pub imu_q_cam: [f64; 4],
-
-    #[serde(flatten, deserialize_with = "deserialize_camera_intrinsics_radial")]
-    pub intrinsics: CameraIntrinsicsRadial,
-}
-
-fn deserialize_slam_camera<'de, D>(deserializer: D) -> Result<SlamCamera, D::Error>
-where
-    D: Deserializer<'de>,
-{
     #[derive(Deserialize)]
-    struct Constructor {
-        num_of_cameras: usize,
-        device_1: SlamCamera,
+    struct CameraIntrinsicsRadialConstructor {
+        #[serde(flatten, deserialize_with = "deserialize_camera_intrinsics_radial")]
+        device: CameraIntrinsicsRadial,
     }
 
     let constructor = Constructor::deserialize(deserializer)?;
+
+    let Some(camera) = constructor.device_1 else {
+        return Ok(None);
+    };
+
     if constructor.num_of_cameras != 1 {
         return Err(serde::de::Error::custom(format!(
             "unexpected number of cameras {}",
@@ -152,7 +146,63 @@ where
         )));
     }
 
-    Ok(constructor.device_1)
+    Ok(Some(camera.device))
+}
+
+fn deserialize_camera_transform<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Isometry3<f64>, D::Error> {
+    #[derive(Deserialize)]
+    struct Constructor {
+        #[serde(rename = "imu_p_cam")]
+        camera_position: [f64; 3],
+
+        #[serde(rename = "imu_q_cam")]
+        camera_rotation: [f64; 4],
+    }
+
+    let constructor = Constructor::deserialize(deserializer)?;
+
+    Ok(Isometry3::from_parts(
+        Translation3::from(constructor.camera_position),
+        UnitQuaternion::from_quaternion(Quaternion::from(constructor.camera_rotation)),
+    ))
+}
+
+#[derive(Deserialize)]
+pub struct SlamCamera {
+    /// Transform of the camera in the IMU frame.
+    #[serde(flatten, deserialize_with = "deserialize_camera_transform")]
+    pub camera_transform: Isometry3<f64>,
+
+    #[serde(flatten, deserialize_with = "deserialize_camera_intrinsics_radial")]
+    pub intrinsics: CameraIntrinsicsRadial,
+}
+
+fn deserialize_slam_camera<'de, D>(deserializer: D) -> Result<Option<SlamCamera>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    struct Constructor {
+        num_of_cameras: usize,
+        device_1: Option<SlamCamera>,
+    }
+
+    let constructor = Constructor::deserialize(deserializer)?;
+
+    let Some(camera) = constructor.device_1 else {
+        return Ok(None);
+    };
+
+    if constructor.num_of_cameras != 1 {
+        return Err(serde::de::Error::custom(format!(
+            "unexpected number of cameras {}",
+            constructor.num_of_cameras
+        )));
+    }
+
+    Ok(Some(camera))
 }
 
 #[derive(Deserialize)]
@@ -212,7 +262,23 @@ where
     #[derive(Deserialize)]
     struct Constructor {
         num_of_imus: usize,
-        device_1: ImuDevice,
+        device_1: ImuDeviceWrapped,
+    }
+
+    #[derive(Deserialize)]
+    struct ImuDeviceWrapped {
+        #[serde(flatten)]
+        device: ImuDevice,
+
+        accel_q_gyro: [f64; 4],
+        gyro_g_sensitivity: [f64; 9],
+        mag_bias: [f64; 3],
+        scale_accel: [f64; 3],
+        scale_gyro: [f64; 3],
+        scale_mag: [f64; 3],
+        skew_accel: [f64; 3],
+        skew_gyro: [f64; 3],
+        skew_mag: [f64; 3],
     }
 
     let constructor = Constructor::deserialize(deserializer)?;
@@ -224,24 +290,158 @@ where
         )));
     }
 
-    Ok(constructor.device_1)
+    if constructor.device_1.accel_q_gyro != [0.0, 0.0, 0.0, 1.0] {
+        return Err(serde::de::Error::custom(format!(
+            "unexpected accel_q_gyro {:?}",
+            constructor.device_1.accel_q_gyro
+        )));
+    }
+
+    if constructor.device_1.gyro_g_sensitivity != [0.0; 9] {
+        return Err(serde::de::Error::custom(format!(
+            "unexpected gyro_g_sensitivity {:?}",
+            constructor.device_1.gyro_g_sensitivity
+        )));
+    }
+
+    if constructor.device_1.mag_bias != [0.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected mag_bias {:?}", constructor.device_1.mag_bias)
+        ))
+    }
+
+    if constructor.device_1.scale_accel != [1.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected scale_accel {:?}", constructor.device_1.scale_accel)
+        ))
+    }
+
+    if constructor.device_1.scale_gyro != [1.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected scale_accel {:?}", constructor.device_1.scale_gyro)
+        ))
+    }
+
+    if constructor.device_1.scale_mag != [1.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected scale_mag {:?}", constructor.device_1.scale_mag)
+        ))
+    }
+
+
+    if constructor.device_1.skew_accel != [0.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected skew_accel {:?}", constructor.device_1.skew_accel)
+        ))
+    }
+
+    if constructor.device_1.skew_gyro != [0.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected skew_gyro {:?}", constructor.device_1.skew_gyro)
+        ))
+    }
+
+    if constructor.device_1.skew_mag != [0.0; 3] {
+        return Err(serde::de::Error::custom(
+            format!("unexpected skew_mag {:?}", constructor.device_1.skew_mag)
+        ))
+    }
+
+    Ok(constructor.device_1.device)
+}
+
+fn deserialize_magnetometer_transform<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Isometry3<f64>, D::Error> {
+    #[derive(Deserialize)]
+    struct Constructor {
+        #[serde(rename = "gyro_p_mag")]
+        position: [f64; 3],
+
+        #[serde(rename = "gyro_q_mag")]
+        rotation: [f64; 4],
+    }
+
+    let constructor = Constructor::deserialize(deserializer)?;
+
+    Ok(Isometry3::from_parts(
+        Translation3::from(constructor.position),
+        UnitQuaternion::from_quaternion(Quaternion::from(constructor.rotation)),
+    ))
 }
 
 #[derive(Deserialize)]
 pub struct ImuDevice {
     pub accel_bias: [f64; 3],
-    pub accel_q_gyro: [f64; 4],
     pub bias_temperature: f64,
+
+    // todo: use this bias or the interpolated one?
     pub gyro_bias: [f64; 3],
+    // todo: implement temprature bias interpolation
     pub gyro_bias_temp_data: Vec<GyroBias>,
-    pub gyro_g_sensitivity: [f64; 9],
-    pub gyro_p_mag: [f64; 3],
-    pub gyro_q_mag: [f64; 4],
 
-    #[serde(flatten)]
-    pub remaining: serde_json::Value,
-
+    /// Transform of the magnetometer in the gyro frame.
+    #[serde(flatten, deserialize_with = "deserialize_magnetometer_transform")]
+    pub magnetometer_transform: Isometry3<f64>,
+    pub imu_intrinsics: ImuIntrinsics,
     pub imu_noises: [f64; 4],
+}
+
+pub struct ImuIntrinsics {
+    pub accl: SensorIntrinsics,
+    pub gyro: SensorIntrinsics,
+    pub static_detection_window_size: usize,
+    pub temperature_mean: f64,
+}
+
+impl <'de> Deserialize<'de> for ImuIntrinsics {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>
+    {
+        #[derive(Deserialize)]
+        struct Constructor {
+            accel_pkpk: [f64; 3],
+            accel_std: [f64; 3],
+            accl_bias: [f64; 3],
+            accl_calib_mat: [f64; 9],
+
+            gyro_pkpk: [f64; 3],
+            gyro_std: [f64; 3],
+            gyro_bias: [f64; 3],
+            gyro_calib_mat: [f64; 9],
+
+            static_detection_window_size: usize,
+            temperature_mean: f64,
+        }
+
+        let it = Constructor::deserialize(deserializer)?;
+
+        Ok(ImuIntrinsics {
+            accl: SensorIntrinsics {
+                pkpk: it.accel_pkpk,
+                std: it.accel_std,
+                bias: it.accl_bias,
+                calibration_matrix: it.accl_calib_mat,
+            },
+            gyro: SensorIntrinsics {
+                pkpk: it.gyro_pkpk,
+                std: it.gyro_std,
+                bias: it.gyro_bias,
+                calibration_matrix: it.gyro_calib_mat,
+            },
+            static_detection_window_size: it.static_detection_window_size,
+            temperature_mean: it.temperature_mean,
+        })
+    }
+}
+
+
+pub struct SensorIntrinsics {
+    pub pkpk: [f64; 3],
+    pub std: [f64; 3],
+    pub bias: [f64; 3],
+    pub calibration_matrix: [f64; 9],
 }
 
 #[derive(Deserialize)]
@@ -318,4 +518,12 @@ impl TryFrom<DisplayDistortionConstructor> for DisplayDistortion {
             VecStorage::new(Dyn(internal.num_row), Dyn(internal.num_col), points),
         )))
     }
+}
+
+// +X => Right
+// +Y => Up
+// +Z => Forward
+
+#[cfg(test)]
+mod tests {
 }

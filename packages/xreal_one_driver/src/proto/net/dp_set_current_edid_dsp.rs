@@ -1,6 +1,6 @@
 use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
 use crate::proto::net::props::{
-    EmptyPropertyResponse, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
+    EmptyPropertyResponse, SetNumericProperty, SetPropertyRequest,
 };
 use crate::proto::net::NetworkTransaction;
 

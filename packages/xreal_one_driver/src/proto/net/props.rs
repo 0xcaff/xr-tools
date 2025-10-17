@@ -86,7 +86,7 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
             bail!("unexpected tag: 0x{:x}", tag);
         }
 
-        let len = is.read_raw_varint64()?;
+        let _len = is.read_raw_varint64()?;
         let Some(tag) = is.read_raw_tag_or_eof()? else {
             bail!("unexpected end of stream");
         };

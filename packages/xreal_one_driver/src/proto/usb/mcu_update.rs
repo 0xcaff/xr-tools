@@ -203,7 +203,7 @@ impl SegmentEntry {
 }
 
 pub trait McuUpdateProgressReporter {
-    fn transmit(&mut self, length: usize) {}
+    fn transmit(&mut self, _length: usize) {}
 }
 
 pub struct McuUpdate<'a> {

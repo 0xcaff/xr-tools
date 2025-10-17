@@ -4,6 +4,7 @@ use futures::Stream;
 use strum::FromRepr;
 use tokio::io::AsyncReadExt;
 
+#[derive(Debug)]
 pub enum InboundMessageType {
     Report(ReportMessage),
     Unknown(UnknownMessage),
@@ -43,7 +44,7 @@ pub async fn listen(
     ))
 }
 
-#[derive(FromRepr, Debug)]
+#[derive(FromRepr, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum ReportType {
     IMU = 0x0000000B,

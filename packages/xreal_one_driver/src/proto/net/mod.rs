@@ -15,7 +15,6 @@ pub mod set_display_brightness;
 pub mod set_elechromic_dimmer;
 
 use crate::proto::usb::RequestArgs;
-use futures::TryStreamExt;
 use std::borrow::Cow;
 
 #[derive(Debug)]
