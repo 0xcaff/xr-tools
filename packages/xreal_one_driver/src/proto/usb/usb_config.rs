@@ -32,7 +32,7 @@ impl UsbTransaction<'static> for GetUsbConfigAll {
 #[bitfield(bits = 32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UsbConfigList {
-    // todo: make this an enum
+    // todo: validate meaning and make this an enum
     // 2 = disable
     // 1 = enable
     // 0 = do nothing

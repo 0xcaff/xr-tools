@@ -24,7 +24,7 @@ pub struct GetGlassesPilotFw;
 
 impl UsbTransaction<'static> for GetGlassesPilotFw {
     const COMMAND_ID: [u8; 2] = [0x13, 0x12];
-    // firmware type 6
+    // firmware type 6 whatever that means
 
     type RequestArgs = RawRequest<'static>;
     type Response = GetGlassesFwVersionResponse;
@@ -52,8 +52,7 @@ impl UsbDevice {
         Ok(self.send_message::<GetGlassesDspFwVersion>(Empty)?.version)
     }
 
-    // todo: figure out wtf goes here
-    // pub fn get_pilot_fw_version(&self) -> Result<String, anyhow::Error> {
-    // Ok(self.send_message::<GetGlassesPilotFw>(RawRequest(&[]))?.version)
-    // }
+    pub fn get_pilot_fw_version(&self) -> Result<String, anyhow::Error> {
+        Ok(self.send_message::<GetGlassesPilotFw>(RawRequest(&[0x02]))?.version)
+    }
 }
