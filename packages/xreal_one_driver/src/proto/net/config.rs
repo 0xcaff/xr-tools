@@ -377,8 +377,7 @@ pub struct ImuDevice {
 
     // todo: use this bias or the interpolated one?
     pub gyro_bias: [f64; 3],
-    // todo: implement temprature bias interpolation
-    pub gyro_bias_temp_data: Vec<GyroBias>,
+    pub gyro_bias_temp_data: GyroBiasValues,
 
     /// Transform of the magnetometer in the gyro frame.
     #[serde(flatten, deserialize_with = "deserialize_magnetometer_transform")]
@@ -392,6 +391,32 @@ pub struct ImuIntrinsics {
     pub gyro: SensorIntrinsics,
     pub static_detection_window_size: usize,
     pub temperature_mean: f64,
+}
+
+#[derive(Deserialize)]
+pub struct GyroBiasValues(pub Vec<GyroBias>);
+
+impl GyroBiasValues {
+    pub fn interpolate(&self, temperature: f64) -> [f64; 3] {
+        let idx = self.0.partition_point(|it| temperature < it.temp);
+
+        if idx == 0 {
+            self.0[0].bias
+        } else if idx == self.0.len() {
+            self.0[self.0.len() - 1].bias
+        } else {
+            let previous = &self.0[idx - 1];
+            let next = &self.0[idx];
+
+            let t = (temperature - previous.temp) / (next.temp - previous.temp);
+
+            [
+                previous.bias[0] * (1.0 - t) + next.bias[0] * t,
+                previous.bias[1] * (1.0 - t) + next.bias[1] * t,
+                previous.bias[2] * (1.0 - t) + next.bias[2] * t,
+            ]
+        }
+    }
 }
 
 impl <'de> Deserialize<'de> for ImuIntrinsics {
