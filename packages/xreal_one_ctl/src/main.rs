@@ -1,12 +1,11 @@
-
 use clap::{Parser, Subcommand};
-use futures::{StreamExt};
+use futures::StreamExt;
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
 use std::time::Duration;
 use xreal_one_driver::proto::usb::mcu_update::{McuUpdate, McuUpdateProgressReporter};
 use xreal_one_driver::proto::usb::pilot_update::PilotUpdateProgressReporter;
-use xreal_one_driver::{ControlNetworkDevice, UsbConfigList, UsbDevice};
+use xreal_one_driver::{ControlNetworkDevice, UsbConfigList, UsbDevice, XrealOneModel};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -41,7 +40,11 @@ async fn main() -> Result<(), anyhow::Error> {
             let mcu_update = McuUpdate::parse(&mcu_bytes)?;
 
             let api = hidapi::HidApi::new()?;
-            let device = UsbDevice::open(&api)?;
+            let device = api
+                .device_list()
+                .find_map(|it| Some(XrealOneModel::detect(it)?))
+                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
+            let device = UsbDevice::open(&api, device)?;
 
             let bar = indicatif::ProgressBar::new((pilot_bytes.len() + mcu_update.size()) as u64);
             bar.enable_steady_tick(Duration::from_millis(100));
@@ -100,7 +103,12 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::Info => {
             let api = hidapi::HidApi::new()?;
-            let device = UsbDevice::open(&api)?;
+
+            let device = api
+                .device_list()
+                .find_map(|it| Some(XrealOneModel::detect(it)?))
+                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
+            let device = UsbDevice::open(&api, device)?;
 
             let dsp_fw_version = device.get_dsp_fw_version()?;
             println!("dsp_fw_version: {}", dsp_fw_version);
@@ -118,7 +126,11 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::EnableCameras => {
             let api = hidapi::HidApi::new()?;
-            let device = UsbDevice::open(&api)?;
+            let device = api
+                .device_list()
+                .find_map(|it| Some(XrealOneModel::detect(it)?))
+                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
+            let device = UsbDevice::open(&api, device)?;
 
             device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
 

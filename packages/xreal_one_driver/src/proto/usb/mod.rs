@@ -69,15 +69,43 @@ impl Response for () {
     }
 }
 
+pub enum XrealOneModelKind {
+    XrealOne,
+    XrealOnePro,
+}
+
+pub struct XrealOneModel<'a> {
+    device: &'a hidapi::DeviceInfo,
+    kind: XrealOneModelKind,
+}
+
+impl XrealOneModel<'_> {
+    pub fn detect(device: &hidapi::DeviceInfo) -> Option<XrealOneModel> {
+        if device.vendor_id() != 0x3318 {
+            return None;
+        }
+
+        let kind = match device.product_id() {
+            0x0435 | 0x0436 => XrealOneModelKind::XrealOne,
+            0x0437 | 0x0438 => XrealOneModelKind::XrealOnePro,
+            _ => return None,
+        };
+
+        Some(XrealOneModel { kind, device })
+    }
+}
+
 pub struct UsbDevice {
     device: hidapi::HidDevice,
+    model: XrealOneModelKind,
 }
 
 impl UsbDevice {
-    pub fn open(api: &hidapi::HidApi) -> Result<Self, anyhow::Error> {
-        let device = api.open(0x3318, 0x0436)?;
-
-        Ok(Self { device })
+    pub fn open(api: &hidapi::HidApi, device: XrealOneModel) -> Result<Self, anyhow::Error> {
+        Ok(Self {
+            device: device.device.open_device(api)?,
+            model: device.kind,
+        })
     }
 
     pub fn send_message<'req, Txn: UsbTransaction<'req>>(
