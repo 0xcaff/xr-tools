@@ -105,6 +105,9 @@ async fn main() -> Result<(), anyhow::Error> {
             let api = hidapi::HidApi::new()?;
             let device = UsbDevice::open(&api)?;
 
+            let model = device.model();
+            println!("model: {:?}", model);
+
             let dsp_fw_version = device.get_dsp_fw_version()?;
             println!("dsp_fw_version: {}", dsp_fw_version);
 

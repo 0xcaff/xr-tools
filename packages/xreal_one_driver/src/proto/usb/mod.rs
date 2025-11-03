@@ -12,6 +12,31 @@ pub mod usb_config;
 
 pub use usb_config::UsbConfigList;
 
+const VENDOR_ID: u16 = 0x3318;
+const XREAL_ONE_PRO_PID_1: u16 = 0x0435;
+const XREAL_ONE_PRO_PID_2: u16 = 0x0436;
+const XREAL_ONE_PID_1: u16 = 0x0437;
+const XREAL_ONE_PID_2: u16 = 0x0438;
+
+#[derive(Debug)]
+pub enum XrealOneModel {
+    XrealOnePro,
+    XrealOne,
+}
+
+impl TryFrom<u16> for XrealOneModel {
+    type Error = anyhow::Error;
+    fn try_from(val: u16) -> Result<XrealOneModel, anyhow::Error> {
+        match val {
+            XREAL_ONE_PRO_PID_1 => Ok(XrealOneModel::XrealOnePro),
+            XREAL_ONE_PRO_PID_2 => Ok(XrealOneModel::XrealOnePro),
+            XREAL_ONE_PID_1 => Ok(XrealOneModel::XrealOne),
+            XREAL_ONE_PID_2 => Ok(XrealOneModel::XrealOne),
+            _ => Err(anyhow::anyhow!("unsupported XREAL ONE product")),
+        }
+    }
+}
+
 pub trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
     const UNKONWN_VALUES: [u8; 5] = [0u8; 5];
@@ -71,13 +96,27 @@ impl Response for () {
 
 pub struct UsbDevice {
     device: hidapi::HidDevice,
+    model: XrealOneModel,
 }
 
 impl UsbDevice {
     pub fn open(api: &hidapi::HidApi) -> Result<Self, anyhow::Error> {
-        let device = api.open(0x3318, 0x0436)?;
+        for device in api.device_list() {
+            if device.vendor_id() == VENDOR_ID {
+                if let Ok(xreal_one) = XrealOneModel::try_from(device.product_id() as u16) {
+                    let device = api.open(VENDOR_ID, device.product_id())?;
+                    return Ok(Self {
+                        device,
+                        model: xreal_one,
+                    });
+                }
+            }
+        }
+        bail!("no xreal one device found");
+    }
 
-        Ok(Self { device })
+    pub fn model(&self) -> &XrealOneModel {
+        &self.model
     }
 
     pub fn send_message<'req, Txn: UsbTransaction<'req>>(
