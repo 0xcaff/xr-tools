@@ -563,4 +563,3 @@ impl TryFrom<DisplayDistortionConstructor> for DisplayDistortion {
         )))
     }
 }
-
