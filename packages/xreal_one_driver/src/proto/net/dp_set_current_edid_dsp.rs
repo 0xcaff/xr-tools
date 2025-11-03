@@ -1,7 +1,5 @@
 use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
-use crate::proto::net::props::{
-    EmptyPropertyResponse, SetNumericProperty, SetPropertyRequest,
-};
+use crate::proto::net::props::{EmptyPropertyResponse, SetNumericProperty, SetPropertyRequest};
 use crate::proto::net::NetworkTransaction;
 
 pub struct DpSetCurrentEdidDsp;

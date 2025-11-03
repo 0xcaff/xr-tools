@@ -150,25 +150,27 @@ async fn main() -> Result<(), anyhow::Error> {
                 println!("{:#?}", report);
 
                 let gyro = {
-                    let gyro = Vector3::from([report.gx as f64, report.gy as f64, report.gz as f64]);
-                    let gyro_bias = Vector3::from(config.imu.gyro_bias_temp_data.interpolate(report.temperature as _));
+                    let gyro =
+                        Vector3::from([report.gx as f64, report.gy as f64, report.gz as f64]);
+                    let gyro_bias = Vector3::from(
+                        config
+                            .imu
+                            .gyro_bias_temp_data
+                            .interpolate(report.temperature as _),
+                    );
 
                     gyro - gyro_bias
                 };
 
                 let accel = {
-                    let accel = Vector3::from([report.ax as f64, report.ay as f64, report.az as f64]);
+                    let accel =
+                        Vector3::from([report.ax as f64, report.ay as f64, report.az as f64]);
                     let accel_bias = Vector3::from(config.imu.accel_bias);
 
                     accel - accel_bias
                 };
 
-                let next = ahrs
-                    .update_imu(
-                        &gyro,
-                        &accel,
-                    )
-                    .unwrap();
+                let next = ahrs.update_imu(&gyro, &accel).unwrap();
 
                 // IMU Space -> Display Space
                 let next = config.display.right.transform.rotation * next;

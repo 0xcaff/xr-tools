@@ -53,6 +53,8 @@ impl UsbDevice {
     }
 
     pub fn get_pilot_fw_version(&self) -> Result<String, anyhow::Error> {
-        Ok(self.send_message::<GetGlassesPilotFw>(RawRequest(&[0x02]))?.version)
+        Ok(self
+            .send_message::<GetGlassesPilotFw>(RawRequest(&[0x02]))?
+            .version)
     }
 }

@@ -25,7 +25,11 @@ pub struct Config {
     pub last_modified_time: time::PrimitiveDateTime,
 }
 
-time::serde::format_description!(last_modified_time_format, PrimitiveDateTime, "[year]-[month]-[day] [hour]:[minute]:[second]");
+time::serde::format_description!(
+    last_modified_time_format,
+    PrimitiveDateTime,
+    "[year]-[month]-[day] [hour]:[minute]:[second]"
+);
 
 impl Config {
     pub fn parse(data: &[u8]) -> Result<Self, anyhow::Error> {
@@ -116,7 +120,9 @@ where
     })
 }
 
-fn deserialize_rgb_camera<'de, D>(deserializer: D) -> Result<Option<CameraIntrinsicsRadial>, D::Error>
+fn deserialize_rgb_camera<'de, D>(
+    deserializer: D,
+) -> Result<Option<CameraIntrinsicsRadial>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -305,46 +311,52 @@ where
     }
 
     if constructor.device_1.mag_bias != [0.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected mag_bias {:?}", constructor.device_1.mag_bias)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected mag_bias {:?}",
+            constructor.device_1.mag_bias
+        )));
     }
 
     if constructor.device_1.scale_accel != [1.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected scale_accel {:?}", constructor.device_1.scale_accel)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected scale_accel {:?}",
+            constructor.device_1.scale_accel
+        )));
     }
 
     if constructor.device_1.scale_gyro != [1.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected scale_accel {:?}", constructor.device_1.scale_gyro)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected scale_accel {:?}",
+            constructor.device_1.scale_gyro
+        )));
     }
 
     if constructor.device_1.scale_mag != [1.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected scale_mag {:?}", constructor.device_1.scale_mag)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected scale_mag {:?}",
+            constructor.device_1.scale_mag
+        )));
     }
 
-
     if constructor.device_1.skew_accel != [0.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected skew_accel {:?}", constructor.device_1.skew_accel)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected skew_accel {:?}",
+            constructor.device_1.skew_accel
+        )));
     }
 
     if constructor.device_1.skew_gyro != [0.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected skew_gyro {:?}", constructor.device_1.skew_gyro)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected skew_gyro {:?}",
+            constructor.device_1.skew_gyro
+        )));
     }
 
     if constructor.device_1.skew_mag != [0.0; 3] {
-        return Err(serde::de::Error::custom(
-            format!("unexpected skew_mag {:?}", constructor.device_1.skew_mag)
-        ))
+        return Err(serde::de::Error::custom(format!(
+            "unexpected skew_mag {:?}",
+            constructor.device_1.skew_mag
+        )));
     }
 
     Ok(constructor.device_1.device)
@@ -419,10 +431,10 @@ impl GyroBiasValues {
     }
 }
 
-impl <'de> Deserialize<'de> for ImuIntrinsics {
+impl<'de> Deserialize<'de> for ImuIntrinsics {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: Deserializer<'de>
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct Constructor {
@@ -460,7 +472,6 @@ impl <'de> Deserialize<'de> for ImuIntrinsics {
         })
     }
 }
-
 
 pub struct SensorIntrinsics {
     pub pkpk: [f64; 3],
@@ -550,5 +561,4 @@ impl TryFrom<DisplayDistortionConstructor> for DisplayDistortion {
 // +Z => Forward
 
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
