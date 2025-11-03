@@ -504,6 +504,8 @@ pub struct Point {
 pub struct DisplayDistortion(pub Matrix<Point, Dyn, Dyn, VecStorage<Point, Dyn, Dyn>>);
 
 // todo: helper to apply distortion
+// https://github.com/0xcaff/xr-tools/blob/eea0baecf84915ecf026a92e2252afa3816a87e3/apply_distortion.py
+// https://github.com/0xcaff/xr-tools/blob/eea0baecf84915ecf026a92e2252afa3816a87e3/test_apriltag.py#L113C26-L114
 
 #[derive(Deserialize)]
 struct DisplayDistortionConstructor {
