@@ -12,7 +12,7 @@ pub mod usb_config;
 
 pub use usb_config::UsbConfigList;
 
-pub trait UsbTransaction<'req> {
+pub(crate) trait UsbTransaction<'req> {
     const COMMAND_ID: [u8; 2];
     const UNKONWN_VALUES: [u8; 5] = [0u8; 5];
 
@@ -108,7 +108,7 @@ impl UsbDevice {
         })
     }
 
-    pub fn send_message<'req, Txn: UsbTransaction<'req>>(
+    pub(crate) fn send_message<'req, Txn: UsbTransaction<'req>>(
         &self,
         request: Txn::RequestArgs,
     ) -> Result<Txn::Response, anyhow::Error> {

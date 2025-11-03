@@ -59,8 +59,8 @@ pub enum ReportType {
 /// These directions are defined relative to the glasses, from the perspective of the wearer when
 /// the glasses are worn on their head.
 ///
-/// gx, gy, gz, ax, ay, az are only valid when [report_type] is [ReportType::IMU]
-/// mx, my, mz are only valid when [report_type] is [ReportType::Magnometer]
+/// gx, gy, gz, ax, ay, az are only valid when report_type is [ReportType::IMU]
+/// mx, my, mz are only valid when report_type is [ReportType::Magnometer]
 #[derive(Debug)]
 pub struct ReportMessage {
     pub device_id: u64,
