@@ -16,13 +16,13 @@ struct Args {
 #[derive(Debug, Subcommand)]
 #[command(author, version, about, long_about = None)]
 enum Commands {
+    GetConfig,
+    Info,
+    EnableCamera,
     Update {
         mcu_path: PathBuf,
         pilot_path: PathBuf,
     },
-    GetConfig,
-    Info,
-    EnableCameras,
 }
 
 #[tokio::main]
@@ -30,6 +30,50 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     match args.command {
+        Commands::GetConfig => {
+            let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
+            tokio::spawn(inbound_messages.for_each(|_| async {}));
+
+            let response = device.get_config_raw().await?;
+            println!("{}", response);
+
+            Ok(())
+        }
+        Commands::Info => {
+            let api = hidapi::HidApi::new()?;
+
+            let device = api
+                .device_list()
+                .find_map(|it| Some(XrealOneModel::detect(it)?))
+                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
+            let device = UsbDevice::open(&api, device)?;
+
+            let dsp_fw_version = device.get_dsp_fw_version()?;
+            println!("dsp_fw_version: {}", dsp_fw_version);
+
+            let mcu_fw_version = device.get_mcu_fw_version()?;
+            println!("mcu_fw_version: {}", mcu_fw_version);
+
+            let camera_plugged = device.get_camera_plugged()?;
+            println!("camera plugged: {:?}", camera_plugged);
+
+            let usb_config = device.get_usb_config()?;
+            println!("usb config: {:#?}", usb_config);
+
+            Ok(())
+        }
+        Commands::EnableCamera => {
+            let api = hidapi::HidApi::new()?;
+            let device = api
+                .device_list()
+                .find_map(|it| Some(XrealOneModel::detect(it)?))
+                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
+            let device = UsbDevice::open(&api, device)?;
+
+            device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
+
+            Ok(())
+        }
         Commands::Update {
             mcu_path,
             pilot_path,
@@ -88,51 +132,6 @@ async fn main() -> Result<(), anyhow::Error> {
             };
 
             bar.finish();
-
-            Ok(())
-        }
-
-        Commands::GetConfig => {
-            let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
-            tokio::spawn(inbound_messages.for_each(|_| async {}));
-
-            let response = device.get_config_raw().await?;
-            println!("{}", response);
-
-            Ok(())
-        }
-        Commands::Info => {
-            let api = hidapi::HidApi::new()?;
-
-            let device = api
-                .device_list()
-                .find_map(|it| Some(XrealOneModel::detect(it)?))
-                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
-            let device = UsbDevice::open(&api, device)?;
-
-            let dsp_fw_version = device.get_dsp_fw_version()?;
-            println!("dsp_fw_version: {}", dsp_fw_version);
-
-            let mcu_fw_version = device.get_mcu_fw_version()?;
-            println!("mcu_fw_version: {}", mcu_fw_version);
-
-            let camera_plugged = device.get_camera_plugged()?;
-            println!("camera plugged: {:?}", camera_plugged);
-
-            let usb_config = device.get_usb_config()?;
-            println!("usb config: {:#?}", usb_config);
-
-            Ok(())
-        }
-        Commands::EnableCameras => {
-            let api = hidapi::HidApi::new()?;
-            let device = api
-                .device_list()
-                .find_map(|it| Some(XrealOneModel::detect(it)?))
-                .ok_or_else(|| anyhow::anyhow!("no device found"))?;
-            let device = UsbDevice::open(&api, device)?;
-
-            device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
 
             Ok(())
         }

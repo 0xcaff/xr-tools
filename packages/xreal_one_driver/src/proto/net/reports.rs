@@ -5,20 +5,20 @@ use strum::FromRepr;
 use tokio::io::AsyncReadExt;
 
 #[derive(Debug)]
-pub enum InboundMessageType {
+pub enum ReportsInboundMessageType {
     Report(ReportMessage),
     Unknown(UnknownMessage),
 }
 
 pub async fn listen(
-) -> Result<impl Stream<Item = Result<InboundMessageType, anyhow::Error>>, anyhow::Error> {
+) -> Result<impl Stream<Item = Result<ReportsInboundMessageType, anyhow::Error>>, anyhow::Error> {
     let connection = tokio::net::TcpStream::connect("169.254.2.1:52998").await?;
 
     let header = [0u8; 6];
     Ok(futures::stream::unfold(
         (connection, header),
         |(mut connection, mut header)| async move {
-            let result = (async || -> Result<InboundMessageType, anyhow::Error> {
+            let result = (async || -> Result<ReportsInboundMessageType, anyhow::Error> {
                 connection.read_exact(&mut header).await?;
 
                 let header = NetworkMessageHeader::from_bytes(&header)?;
@@ -29,9 +29,9 @@ pub async fn listen(
                 match header.magic {
                     ReportMessage::MAGIC => {
                         let body = ReportMessage::deserialize_from(body)?;
-                        Ok(InboundMessageType::Report(body))
+                        Ok(ReportsInboundMessageType::Report(body))
                     }
-                    _ => Ok(InboundMessageType::Unknown(UnknownMessage {
+                    _ => Ok(ReportsInboundMessageType::Unknown(UnknownMessage {
                         magic: header.magic,
                         bytes: body,
                     })),
@@ -52,15 +52,15 @@ pub enum ReportType {
 }
 
 /// A report message containing IMU (Inertial Measurement Unit) data related to the position and
-/// orientation of the glasses. Values are expressed in a global coordinate system. where:
+/// orientation of the glasses. Values are expressed in a global coordinate system where:
 /// - Positive X points to the left,
 /// - Positive Y points upward,
 /// - Positive Z points backwards.
 /// These directions are defined relative to the glasses, from the perspective of the wearer when
 /// the glasses are worn on their head.
 ///
-/// [gx], [gy], [gz], [ax], [ay], [az] are only valid when [report_type] is [ReportType::IMU]
-/// [mx], [my], [mz] are only valid when [report_type] is [ReportType::Magnometer]
+/// gx, gy, gz, ax, ay, az are only valid when [report_type] is [ReportType::IMU]
+/// mx, my, mz are only valid when [report_type] is [ReportType::Magnometer]
 #[derive(Debug)]
 pub struct ReportMessage {
     pub device_id: u64,

@@ -80,7 +80,7 @@ pub struct XrealOneModel<'a> {
 }
 
 impl XrealOneModel<'_> {
-    pub fn detect(device: &hidapi::DeviceInfo) -> Option<XrealOneModel> {
+    pub fn detect<'a>(device: &'a hidapi::DeviceInfo) -> Option<XrealOneModel<'a>> {
         if device.vendor_id() != 0x3318 {
             return None;
         }

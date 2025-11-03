@@ -29,7 +29,7 @@ pub struct ControlNetworkDevice {
 }
 
 #[derive(Debug)]
-pub enum InboundMessageType {
+pub enum ControlInboundMessageType {
     KeyStateChange(KeyStateChangeMessage),
     Unknown(UnknownMessage),
 }
@@ -44,7 +44,7 @@ impl ControlNetworkDevice {
     pub async fn new() -> Result<
         (
             Self,
-            impl Stream<Item = Result<InboundMessageType, anyhow::Error>>,
+            impl Stream<Item = Result<ControlInboundMessageType, anyhow::Error>>,
         ),
         anyhow::Error,
     > {
@@ -63,7 +63,7 @@ impl ControlNetworkDevice {
                 let pending_requests = pending_requests.clone();
 
                 async move {
-                    let result = (async || -> Result<InboundMessageType, anyhow::Error> {
+                    let result = (async || -> Result<ControlInboundMessageType, anyhow::Error> {
                         loop {
                             read.read_exact(&mut header).await?;
                             let header = NetworkMessageHeader::from_bytes(&header)?;
@@ -74,7 +74,7 @@ impl ControlNetworkDevice {
                                     read.read_exact(&mut body).await?;
 
                                     let from = KeyStateChangeMessage::deserialize_from(body)?;
-                                    return Ok(InboundMessageType::KeyStateChange(from));
+                                    return Ok(ControlInboundMessageType::KeyStateChange(from));
                                 }
                                 _ => {
                                     let transaction_id = read.read_u32().await?;
@@ -89,10 +89,12 @@ impl ControlNetworkDevice {
                                         let mut body_new = transaction_id.to_be_bytes().to_vec();
                                         body_new.append(&mut body);
 
-                                        return Ok(InboundMessageType::Unknown(UnknownMessage {
-                                            bytes: body_new,
-                                            magic: header.magic,
-                                        }));
+                                        return Ok(ControlInboundMessageType::Unknown(
+                                            UnknownMessage {
+                                                bytes: body_new,
+                                                magic: header.magic,
+                                            },
+                                        ));
                                     };
 
                                     let _ = pending_request.send(body);
@@ -108,7 +110,7 @@ impl ControlNetworkDevice {
         ))
     }
 
-    pub async fn send_message<'a, T: NetworkTransaction<'a>>(
+    pub(crate) async fn send_message<'a, T: NetworkTransaction<'a>>(
         &mut self,
         request: T::RequestArgs,
     ) -> Result<T::Response, anyhow::Error> {

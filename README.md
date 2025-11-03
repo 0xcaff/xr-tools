@@ -1,4 +1,23 @@
 # xr-tools
 
-A collection of tools for building XR applications. This will probably be a collection of low-level drivers and common
-interfaces until an application model is discovered through sufficient experimentation.
+hardware for what appears like it could be a new compute platform is rapidly becoming available. unfortunately, hardware
+mfgs have non-standard closed interfaces not available to developers except on specific hardware on specific platforms.
+
+this is a collection of low-level drivers for common devices. eventually, we hope for this to be a home for a common
+[application model around many xr devices.
+](https://github.com/0xcaff/xr-tools/tree/main/packages/xreal_one_driver)
+let the building begin!
+
+## device support
+
+* [XREAL One and XREAL One Pro](./packages/xreal_one_driver)
+  Software Updates, IMU (Gyro, Accelerometer, Magnetometer), Camera, Display Control (Brightness, Dimming, Mode), Key
+  Presses and Factory Calibration Values (Intrinsics and Extrinsics for IMU, Camera and Display)
+
+### upcoming
+
+* Viture Luma Ultra
+  Hope to have IMU and cameras working (including side cameras).
+
+## special thanks
+special thanks to the folks in the MakeReal XR discord for their research support. this was a team effort.

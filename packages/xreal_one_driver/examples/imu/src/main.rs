@@ -18,7 +18,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let mut ahrs = ahrs::Madgwick::new(1.0f64 / 1000.0, 0.1);
 
     while let Some(report) = reports.next().await.transpose()? {
-        let reports::InboundMessageType::Report(report) = report else {
+        let reports::ReportsInboundMessageType::Report(report) = report else {
             continue;
         };
 

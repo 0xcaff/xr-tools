@@ -1,5 +1,6 @@
 [workspace]
-members = [ "packages/xreal_one_ctl",
+members = [
+    "packages/xreal_one_ctl",
     "packages/xreal_one_driver",
     "packages/xreal_one_driver/examples/*",
 ]
