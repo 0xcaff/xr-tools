@@ -1,11 +1,11 @@
 # xr-tools
 
-hardware for what appears like it could be a new compute platform is rapidly becoming available. unfortunately, hardware
-mfgs have non-standard closed interfaces not available to developers except on specific hardware on specific platforms.
+hardware for what appears like it could be a new compute platform is rapidly becoming available. unfortunately, mfgs
+have non-standard closed interfaces not available to developers except on specific hardware on specific platforms.
 
 this is a collection of low-level drivers for common devices. eventually, we hope for this to be a home for a common
-[application model around many xr devices.
-](https://github.com/0xcaff/xr-tools/tree/main/packages/xreal_one_driver)
+application model around many xr devices.
+
 let the building begin!
 
 ## device support
