@@ -3,10 +3,6 @@ name = "xreal_one_driver"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-path = "bin/xreal_one_ctl.rs"
-name = "xreal_one_ctl"
-
 [dependencies]
 hidapi = "2.6.3"
 anyhow = "1.0.99"
@@ -16,16 +12,13 @@ modular-bitfield = "0.12.0"
 protobuf = "=3.5.0"
 binrw = "0.14"
 lzokay-native = { version = "0.1.0", features = ["decompress"] }
-tokio = { version = "1.47.1", features = ["net", "io-util", "sync", "macros", "time", "rt-multi-thread"] }
-clap = { version = "4.5.48", features = ["derive"] }
-indicatif = "0.18.0"
+tokio = { version = "1.47.1", features = [] }
 strum = { version = "0.27.2", features = ["derive"] }
 futures = "0.3.31"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 nalgebra = "0.34.1"
-hexdump = "0.1.2"
 time = { version = "0.3.44", features = ["macros", "serde", "parsing"] }
-ahrs = "0.8.0"
 
 [dev-dependencies]
+hexdump = "0.1.2"

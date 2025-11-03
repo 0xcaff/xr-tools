@@ -1,5 +1,6 @@
 [workspace]
-members = [
+members = [ "packages/xreal_one_ctl",
     "packages/xreal_one_driver",
+    "packages/xreal_one_driver/examples/*",
 ]
 resolver = "3"

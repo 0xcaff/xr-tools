@@ -1,0 +1,14 @@
+[package]
+name = "xreal_one_ctl"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+xreal_one_driver = { path = "../xreal_one_driver" }
+futures = "0.3.31"
+tokio = { version = "1.47.1", features = ["net", "io-util", "sync", "macros", "time", "rt-multi-thread"] }
+hidapi = "2.6.3"
+anyhow = "1.0.100"
+clap = { version = "4.5.48", features = ["derive"] }
+indicatif = "0.18.0"
+nalgebra = "0.34.1"
