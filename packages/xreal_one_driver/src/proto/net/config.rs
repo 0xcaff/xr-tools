@@ -3,6 +3,8 @@ use nalgebra::{Dyn, Isometry3, Matrix, Quaternion, Translation3, UnitQuaternion,
 use serde::{Deserialize, Deserializer};
 
 #[derive(Deserialize)]
+/// device factory configuration for XREAL One devices. the imu camera and the slam camera refer to
+/// the same physical camera module.
 pub struct Config {
     #[serde(rename = "FSN")]
     pub fsn: String,
@@ -59,6 +61,10 @@ pub struct DisplaysConfig {
 
 pub struct DisplayConfig {
     // todo: what frame is this in?
+    /// K: 3x3 display/camera intrinsic matrix in row-major order:
+    /// [ fx  0  cx ]
+    /// [  0 fy  cy ]
+    /// [  0  0   1 ]
     pub k: [f64; 9],
 
     /// Transform of the display in the IMU frame.
@@ -558,9 +564,3 @@ impl TryFrom<DisplayDistortionConstructor> for DisplayDistortion {
     }
 }
 
-// +X => Right
-// +Y => Up
-// +Z => Forward
-
-#[cfg(test)]
-mod tests {}
