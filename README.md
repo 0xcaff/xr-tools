@@ -11,12 +11,14 @@ let the building begin!
 ## device support
 
 * [XREAL One and XREAL One Pro](./packages/xreal_one_driver)
+  
   Software Updates, IMU (Gyro, Accelerometer, Magnetometer), Camera, Display Control (Brightness, Dimming, Mode), Key
   Presses and Factory Calibration Values (Intrinsics and Extrinsics for IMU, Camera and Display)
 
 ### upcoming
 
 * Viture Luma Ultra
+  
   Hope to have IMU and cameras working (including side cameras).
 
 ## special thanks
