@@ -51,6 +51,16 @@ pub enum ReportType {
     Magnometer = 0x00000004,
 }
 
+/// A report message containing IMU (Inertial Measurement Unit) data related to the position and
+/// orientation of the glasses. Values are expressed in a global coordinate system. where:
+/// - Positive X points to the left,
+/// - Positive Y points upward,
+/// - Positive Z points backwards.
+/// These directions are defined relative to the glasses, from the perspective of the wearer when
+/// the glasses are worn on their head.
+///
+/// [gx], [gy], [gz], [ax], [ay], [az] are only valid when [report_type] is [ReportType::IMU]
+/// [mx], [my], [mz] are only valid when [report_type] is [ReportType::Magnometer]
 #[derive(Debug)]
 pub struct ReportMessage {
     pub device_id: u64,
@@ -65,8 +75,12 @@ pub struct ReportMessage {
     pub mx: f32,
     pub my: f32,
     pub mz: f32,
+
+    /// Temperature in degrees Celsius
     pub temperature: f32,
     pub imu_id: u8,
+
+    /// An incrementing counter
     pub frame_id: [u8; 3],
 }
 
