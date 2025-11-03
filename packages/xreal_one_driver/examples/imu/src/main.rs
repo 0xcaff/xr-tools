@@ -61,7 +61,7 @@ async fn main() -> Result<(), anyhow::Error> {
             "Pitch: {:.3} Roll: {:.3} Yaw: {:.3}",
             pitch.to_degrees(),
             roll.to_degrees(),
-            yaw.to_degrees()
+            -yaw.to_degrees()
         );
     }
 
