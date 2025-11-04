@@ -17,6 +17,8 @@ cargo install --git https://github.com/0xcaff/xr-tools xreal_one_ctl
 xreal_one_ctl enable-camera # see other commands with xreal_one_ctl --help
 ```
 
+the device will re-connect with an additional uvc camera
+
 ## examples
 
 see the examples for usage:
