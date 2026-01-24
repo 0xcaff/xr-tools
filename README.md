@@ -21,5 +21,9 @@ let the building begin!
   
   Hope to have IMU and cameras working (including side cameras).
 
+## enabling camera on macos
+
+To enable Xreal One Pro camera on macOS, see [enable_camera_mac](./enable_camera_mac).
+
 ## special thanks
 special thanks to the folks in the MakeReal XR discord for their research support. this was a team effort.
