@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
 
     pyproject-nix = {
@@ -31,6 +31,7 @@
     }:
     flake-utils.lib.meld inputs [
       ./packages/xreal_fetch_updates
+      ./packages/xreal_one_ctl
       ./nix/fmt.nix
     ];
 }
