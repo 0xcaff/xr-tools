@@ -8,3 +8,4 @@ dependencies = [
 
 [project.scripts]
 fetch_updates = "fetch_updates:main"
+backfill_updates = "backfill_updates:main"
