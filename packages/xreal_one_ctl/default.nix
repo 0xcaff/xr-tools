@@ -26,6 +26,7 @@ flake-utils.lib.eachDefaultSystem (
       buildInputs =
         pkgs.lib.optionals pkgs.stdenv.isLinux [
           pkgs.hidapi
+          pkgs.udev
         ];
     };
   }
