@@ -42,7 +42,7 @@ def run(args):
 
         if version_json.is_file():
             print(f"Already staged: {version_json}")
-            return
+            continue
 
         # Download each file to OUTPUT/{hardware_code}/{ident}/{fileType}/{fileName} and verify md5
         for f in data["files"]:
