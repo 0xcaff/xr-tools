@@ -30,6 +30,7 @@
       ...
     }:
     flake-utils.lib.meld inputs [
+      ./packages/viture_fetch_updates
       ./packages/xreal_fetch_updates
       ./packages/xreal_one_ctl
       ./nix/fmt.nix
