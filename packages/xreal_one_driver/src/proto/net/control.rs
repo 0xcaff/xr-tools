@@ -232,12 +232,10 @@ impl ControlNetworkDevice {
     }
 
     pub async fn get_space_screen_eis_enable(&mut self) -> Result<bool, anyhow::Error> {
-        Ok(self
+        let response = self
             .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
-            .await?
-            .value
-            .0
-            .0)
+            .await?;
+        parse_enable_property_response(&response.0)
     }
 
     pub async fn set_space_screen_eis_enable(
@@ -254,7 +252,7 @@ impl ControlNetworkDevice {
 
     pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
         let response = self.send_message::<ProximityIsEnable>(GetPropertyRequest).await?;
-        parse_optional_enable_property_response(&response.0)
+        parse_enable_property_response(&response.0)
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
@@ -319,7 +317,15 @@ impl ControlNetworkDevice {
     }
 }
 
-fn parse_optional_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow::Error> {
+fn parse_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow::Error> {
+    let Some(value) = parse_enable_property_response_inner(buffer)? else {
+        bail!("empty enable payload");
+    };
+
+    Ok(value)
+}
+
+fn parse_enable_property_response_inner(buffer: &[u8]) -> Result<Option<bool>, anyhow::Error> {
     let mut is = protobuf::CodedInputStream::from_bytes(buffer);
 
     let Some(tag) = is.read_raw_tag_or_eof()? else {
@@ -333,7 +339,7 @@ fn parse_optional_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow
     let len = is.read_raw_varint64()?;
     if len == 0 {
         is.check_eof()?;
-        return Ok(false);
+        return Ok(None);
     }
 
     let old_limit = is.push_limit(len)?;
@@ -347,11 +353,14 @@ fn parse_optional_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow
         bail!("unexpected tag: 0x{:x}", tag);
     }
 
-    let value = is.read_raw_varint32()? != 0;
+    let value = is.read_raw_varint32()?;
+    if value > 1 {
+        bail!("unexpected enable payload value: {}", value);
+    }
 
     is.check_eof()?;
     is.pop_limit(old_limit);
     is.check_eof()?;
 
-    Ok(value)
+    Ok(Some(value != 0))
 }
