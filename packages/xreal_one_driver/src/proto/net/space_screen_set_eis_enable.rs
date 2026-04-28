@@ -5,7 +5,7 @@ use crate::proto::net::NetworkTransaction;
 pub struct SpaceScreenSetEisEnable;
 
 impl NetworkTransaction<'static> for SpaceScreenSetEisEnable {
-    const MAGIC: [u8; 2] = [0x28, 0x97];
+    const MAGIC: [u8; 2] = [0x28, 0x9a];
     type RequestArgs = SetPropertyRequest<SetNumericProperty<EnableValue>>;
     type Response = EmptyPropertyResponse;
 }

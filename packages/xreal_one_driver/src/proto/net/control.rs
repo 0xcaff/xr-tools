@@ -20,7 +20,7 @@ pub use crate::proto::net::set_elechromic_dimmer::ElectricDimmerLevel;
 use crate::proto::net::set_elechromic_dimmer::SetElechromicDimmer;
 use crate::proto::net::space_screen_get_eis_enable::SpaceScreenGetEisEnable;
 use crate::proto::net::space_screen_set_eis_enable::SpaceScreenSetEisEnable;
-use crate::proto::net::{InboundMessage, NetworkTransaction, Response};
+use crate::proto::net::{InboundMessage, NetworkTransaction, RawRequest, Response};
 use crate::proto::usb::RequestArgs;
 use futures::Stream;
 use std::collections::HashMap;
@@ -231,7 +231,7 @@ impl ControlNetworkDevice {
 
     pub async fn get_space_screen_eis_enable(&mut self) -> Result<bool, anyhow::Error> {
         Ok(self
-            .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
+            .send_message::<SpaceScreenGetEisEnable>(RawRequest(&[]))
             .await?
             .value
             .0
@@ -252,7 +252,7 @@ impl ControlNetworkDevice {
 
     pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
         Ok(self
-            .send_message::<ProximityIsEnable>(GetPropertyRequest)
+            .send_message::<ProximityIsEnable>(RawRequest(&[]))
             .await?
             .value
             .0
