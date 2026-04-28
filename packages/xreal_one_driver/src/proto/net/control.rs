@@ -22,7 +22,9 @@ use crate::proto::net::space_screen_get_eis_enable::SpaceScreenGetEisEnable;
 use crate::proto::net::space_screen_set_eis_enable::SpaceScreenSetEisEnable;
 use crate::proto::net::{InboundMessage, NetworkTransaction, RawRequest, Response};
 use crate::proto::usb::RequestArgs;
+use anyhow::bail;
 use futures::Stream;
+use protobuf::rt::WireType;
 use std::collections::HashMap;
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -251,12 +253,8 @@ impl ControlNetworkDevice {
     }
 
     pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
-        Ok(self
-            .send_message::<ProximityIsEnable>(RawRequest(&[]))
-            .await?
-            .value
-            .0
-            .0)
+        let response = self.send_message::<ProximityIsEnable>(RawRequest(&[])).await?;
+        parse_optional_enable_property_response(&response.0)
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
@@ -319,4 +317,41 @@ impl ControlNetworkDevice {
     pub async fn get_config(&mut self) -> Result<Config, anyhow::Error> {
         Ok(Config::parse(self.get_config_raw().await?.as_bytes())?)
     }
+}
+
+fn parse_optional_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow::Error> {
+    let mut is = protobuf::CodedInputStream::from_bytes(buffer);
+
+    let Some(tag) = is.read_raw_tag_or_eof()? else {
+        bail!("unexpected end of stream");
+    };
+
+    if tag != ((4 << 3) | WireType::LengthDelimited as u32) {
+        bail!("unexpected tag: 0x{:x}", tag);
+    }
+
+    let len = is.read_raw_varint64()?;
+    if len == 0 {
+        is.check_eof()?;
+        return Ok(false);
+    }
+
+    let old_limit = is.push_limit(len)?;
+    let Some(tag) = is.read_raw_tag_or_eof()? else {
+        bail!("unexpected end of stream");
+    };
+
+    let expected_field_1_tag = (1 << 3) | WireType::Varint as u32;
+    let expected_field_2_tag = (2 << 3) | WireType::Varint as u32;
+    if tag != expected_field_1_tag && tag != expected_field_2_tag {
+        bail!("unexpected tag: 0x{:x}", tag);
+    }
+
+    let value = is.read_raw_varint32()? != 0;
+
+    is.check_eof()?;
+    is.pop_limit(old_limit);
+    is.check_eof()?;
+
+    Ok(value)
 }
