@@ -11,9 +11,11 @@ use crate::proto::net::glasses_get_dsp_version::GlassesGetDspVersion;
 use crate::proto::net::glasses_get_id::GlassesGetId;
 use crate::proto::net::glasses_get_sw_version::GlassesGetFwVersion;
 pub use crate::proto::net::key_submit_state::KeyStateChangeMessage;
+use crate::proto::net::props::{
+    EmptyMessageRequest, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
+};
 use crate::proto::net::proximity_is_enable::ProximityIsEnable;
 use crate::proto::net::proximity_set_enable::ProximitySetEnable;
-use crate::proto::net::props::{GetPropertyRequest, SetNumericProperty, SetPropertyRequest};
 pub use crate::proto::net::set_display_brightness::DisplayBrightness;
 use crate::proto::net::set_display_brightness::SetDisplayBrightness;
 pub use crate::proto::net::set_elechromic_dimmer::ElectricDimmerLevel;
@@ -233,9 +235,9 @@ impl ControlNetworkDevice {
 
     pub async fn get_space_screen_eis_enable(&mut self) -> Result<bool, anyhow::Error> {
         let response = self
-            .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
+            .send_message::<SpaceScreenGetEisEnable>(EmptyMessageRequest)
             .await?;
-        parse_enable_property_response(&response.0)
+        parse_enable_rpc_response(&response.0, "NRSpaceScreenGetEisEnable")
     }
 
     pub async fn set_space_screen_eis_enable(
@@ -251,8 +253,10 @@ impl ControlNetworkDevice {
     }
 
     pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
-        let response = self.send_message::<ProximityIsEnable>(GetPropertyRequest).await?;
-        parse_enable_property_response(&response.0)
+        let response = self
+            .send_message::<ProximityIsEnable>(EmptyMessageRequest)
+            .await?;
+        parse_enable_rpc_response(&response.0, "NRProximityIsEnable")
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
@@ -317,15 +321,7 @@ impl ControlNetworkDevice {
     }
 }
 
-fn parse_enable_property_response(buffer: &[u8]) -> Result<bool, anyhow::Error> {
-    let Some(value) = parse_enable_property_response_inner(buffer)? else {
-        bail!("empty enable payload");
-    };
-
-    Ok(value)
-}
-
-fn parse_enable_property_response_inner(buffer: &[u8]) -> Result<Option<bool>, anyhow::Error> {
+fn parse_enable_rpc_response(buffer: &[u8], command_name: &str) -> Result<bool, anyhow::Error> {
     let mut is = protobuf::CodedInputStream::from_bytes(buffer);
 
     let Some(tag) = is.read_raw_tag_or_eof()? else {
@@ -339,28 +335,39 @@ fn parse_enable_property_response_inner(buffer: &[u8]) -> Result<Option<bool>, a
     let len = is.read_raw_varint64()?;
     if len == 0 {
         is.check_eof()?;
-        return Ok(None);
+        return Ok(false);
     }
 
     let old_limit = is.push_limit(len)?;
-    let Some(tag) = is.read_raw_tag_or_eof()? else {
-        bail!("unexpected end of stream");
-    };
+    let result_tag = (1 << 3) | WireType::Varint as u32;
+    let value_tag = (2 << 3) | WireType::Varint as u32;
 
-    let expected_field_1_tag = (1 << 3) | WireType::Varint as u32;
-    let expected_field_2_tag = (2 << 3) | WireType::Varint as u32;
-    if tag != expected_field_1_tag && tag != expected_field_2_tag {
-        bail!("unexpected tag: 0x{:x}", tag);
-    }
+    let mut result_code = 0u32;
+    let mut value = None;
 
-    let value = is.read_raw_varint32()?;
-    if value > 1 {
-        bail!("unexpected enable payload value: {}", value);
+    while let Some(tag) = is.read_raw_tag_or_eof()? {
+        match tag {
+            t if t == result_tag => {
+                result_code = is.read_raw_varint32()?;
+            }
+            t if t == value_tag => {
+                let parsed = is.read_raw_varint32()?;
+                if parsed > 1 {
+                    bail!("unexpected enable payload value: {}", parsed);
+                }
+                value = Some(parsed != 0);
+            }
+            _ => bail!("unexpected tag: 0x{:x}", tag),
+        }
     }
 
     is.check_eof()?;
     is.pop_limit(old_limit);
     is.check_eof()?;
 
-    Ok(Some(value != 0))
+    if result_code != 0 {
+        bail!("{} returned error code {}", command_name, result_code);
+    }
+
+    Ok(value.unwrap_or(false))
 }
