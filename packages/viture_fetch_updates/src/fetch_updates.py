@@ -26,13 +26,13 @@ import requests
 #   `vers.js` payload.
 
 
-def safePathComponent(value: str) -> str:
+def safe_path_component(value: str) -> str:
     if "/" in value:
         raise ValueError(f"Unexpected '/' in path component: {value!r}")
     return value
 
 
-def parseFirmwarePayload(source: str) -> dict:
+def parse_firmware_payload(source: str) -> dict:
     match = re.fullmatch(
         r"\s*(?:var|let|const)\s+firmware_vers\s*=\s*(\{.*\})\s*;?\s*",
         source,
@@ -47,7 +47,7 @@ def parseFirmwarePayload(source: str) -> dict:
     return data
 
 
-def downloadFile(url: str, dest: Path) -> str:
+def download_file(url: str, dest: Path) -> str:
     sha256 = hashlib.sha256()
     with requests.get(url, stream=True, timeout=120) as resp:
         resp.raise_for_status()
@@ -59,7 +59,7 @@ def downloadFile(url: str, dest: Path) -> str:
     return sha256.hexdigest()
 
 
-def stageModelFirmware(output_root: Path, model_code: str, model_payload: dict) -> None:
+def stage_model_firmware(output_root: Path, model_code: str, model_payload: dict) -> None:
     ver_name = model_payload.get("verName")
     if not ver_name:
         raise RuntimeError(f"Missing verName for model {model_code}")
@@ -68,7 +68,7 @@ def stageModelFirmware(output_root: Path, model_code: str, model_payload: dict) 
     if not relative_url:
         raise RuntimeError(f"Missing firmware url for model {model_code}")
 
-    version_dir = output_root / safePathComponent(model_code) / safePathComponent(
+    version_dir = output_root / safe_path_component(model_code) / safe_path_component(
         ver_name
     )
     version_json = version_dir / "version.json"
@@ -81,7 +81,7 @@ def stageModelFirmware(output_root: Path, model_code: str, model_payload: dict) 
     firmware_dest = version_dir / "firmware" / filename
     firmware_dest.parent.mkdir(parents=True, exist_ok=True)
 
-    sha256 = downloadFile(firmware_url, firmware_dest)
+    sha256 = download_file(firmware_url, firmware_dest)
 
     staged_payload = {
         "modelCode": model_code,
@@ -108,11 +108,11 @@ def run(args):
         timeout=30,
     )
     resp.raise_for_status()
-    versions = parseFirmwarePayload(resp.text)
+    versions = parse_firmware_payload(resp.text)
 
     for model_code, model_payload in sorted(versions.items()):
         try:
-            stageModelFirmware(output_root, model_code, model_payload)
+            stage_model_firmware(output_root, model_code, model_payload)
         except Exception as err:  # noqa: BLE001
             print(f"Failed to stage {model_code}: {err}")
 
