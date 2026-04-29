@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use futures::StreamExt;
 use indicatif::ProgressStyle;
 use std::path::PathBuf;
@@ -18,11 +18,32 @@ struct Args {
 enum Commands {
     GetConfig,
     Info,
+    Enable {
+        target: Target,
+    },
+    Disable {
+        target: Target,
+    },
     EnableCamera,
     Update {
         mcu_path: PathBuf,
         pilot_path: PathBuf,
     },
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum Target {
+    Proximity,
+    Stabilizer,
+}
+
+impl Target {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Proximity => "proximity",
+            Self::Stabilizer => "stabilizer",
+        }
+    }
 }
 
 #[tokio::main]
@@ -36,6 +57,24 @@ async fn main() -> Result<(), anyhow::Error> {
 
             let response = device.get_config_raw().await?;
             println!("{}", response);
+
+            Ok(())
+        }
+        Commands::Enable { target } => {
+            let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
+            tokio::spawn(inbound_messages.for_each(|_| async {}));
+
+            set_target_enabled(&mut device, target, true).await?;
+            println!("enabled {}", target.name());
+
+            Ok(())
+        }
+        Commands::Disable { target } => {
+            let (mut device, inbound_messages) = ControlNetworkDevice::new().await?;
+            tokio::spawn(inbound_messages.for_each(|_| async {}));
+
+            set_target_enabled(&mut device, target, false).await?;
+            println!("disabled {}", target.name());
 
             Ok(())
         }
@@ -135,5 +174,16 @@ async fn main() -> Result<(), anyhow::Error> {
 
             Ok(())
         }
+    }
+}
+
+async fn set_target_enabled(
+    device: &mut ControlNetworkDevice,
+    target: Target,
+    enabled: bool,
+) -> Result<(), anyhow::Error> {
+    match target {
+        Target::Proximity => device.set_proximity_enable(enabled).await,
+        Target::Stabilizer => device.set_space_screen_eis_enable(enabled).await,
     }
 }
