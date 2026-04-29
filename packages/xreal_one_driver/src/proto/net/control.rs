@@ -5,14 +5,13 @@ pub use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
 use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
 use crate::proto::net::dp_set_input_mode::DpSetInputMode;
 pub use crate::proto::net::dp_set_input_mode::InputMode;
-use crate::proto::net::enable_value::EnableValue;
 use crate::proto::net::get_config::GetConfig;
 use crate::proto::net::glasses_get_dsp_version::GlassesGetDspVersion;
 use crate::proto::net::glasses_get_id::GlassesGetId;
 use crate::proto::net::glasses_get_sw_version::GlassesGetFwVersion;
 pub use crate::proto::net::key_submit_state::KeyStateChangeMessage;
 use crate::proto::net::props::{
-    EmptyMessageRequest, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
+    BoolRequest, EmptyMessageRequest, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
 };
 use crate::proto::net::proximity_is_enable::ProximityIsEnable;
 use crate::proto::net::proximity_set_enable::ProximitySetEnable;
@@ -244,10 +243,8 @@ impl ControlNetworkDevice {
         &mut self,
         enabled: bool,
     ) -> Result<(), anyhow::Error> {
-        self.send_message::<SpaceScreenSetEisEnable>(SetPropertyRequest {
-            value: SetNumericProperty(EnableValue(enabled)),
-        })
-        .await?;
+        self.send_message::<SpaceScreenSetEisEnable>(BoolRequest(enabled))
+            .await?;
 
         Ok(())
     }
@@ -260,10 +257,8 @@ impl ControlNetworkDevice {
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
-        self.send_message::<ProximitySetEnable>(SetPropertyRequest {
-            value: SetNumericProperty(EnableValue(enabled)),
-        })
-        .await?;
+        self.send_message::<ProximitySetEnable>(BoolRequest(enabled))
+            .await?;
 
         Ok(())
     }
