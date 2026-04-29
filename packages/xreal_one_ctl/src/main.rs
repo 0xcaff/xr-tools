@@ -34,6 +34,7 @@ enum Commands {
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum Target {
     Proximity,
+    #[value(alias = "stab")]
     Stabilizer,
 }
 
@@ -57,6 +58,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
             let response = device.get_config_raw().await?;
             println!("{}", response);
+
+            for target in [Target::Proximity, Target::Stabilizer] {
+                let enabled = get_target_enabled(&mut device, target).await?;
+                let status = if enabled { "enabled" } else { "disabled" };
+                println!("{}: {}", target.name(), status);
+            }
 
             Ok(())
         }
@@ -185,5 +192,15 @@ async fn set_target_enabled(
     match target {
         Target::Proximity => device.set_proximity_enable(enabled).await,
         Target::Stabilizer => device.set_space_screen_eis_enable(enabled).await,
+    }
+}
+
+async fn get_target_enabled(
+    device: &mut ControlNetworkDevice,
+    target: Target,
+) -> Result<bool, anyhow::Error> {
+    match target {
+        Target::Proximity => device.get_proximity_enable().await,
+        Target::Stabilizer => device.get_space_screen_eis_enable().await,
     }
 }
