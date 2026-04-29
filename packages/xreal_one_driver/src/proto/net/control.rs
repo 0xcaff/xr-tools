@@ -235,7 +235,8 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<SpaceScreenGetEisEnable>(EmptyMessageRequest)
             .await?;
-        Ok(response.value.0 .0)
+        let enabled = response.value.0;
+        Ok(enabled.0)
     }
 
     pub async fn set_space_screen_eis_enable(
@@ -254,7 +255,8 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<ProximityIsEnable>(EmptyMessageRequest)
             .await?;
-        Ok(response.value.0 .0)
+        let enabled = response.value.0;
+        Ok(enabled.0)
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {

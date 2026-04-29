@@ -113,9 +113,8 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
             bail!("unexpected end of stream");
         };
 
-        let expected_field_1_tag = (1 << 3) | V::WIRE_TYPE as u32;
-        let expected_field_2_tag = (2 << 3) | V::WIRE_TYPE as u32;
-        if tag != expected_field_1_tag && tag != expected_field_2_tag {
+        let expected_value_tag = (2 << 3) | V::WIRE_TYPE as u32;
+        if tag != expected_value_tag {
             bail!("unexpected tag: 0x{:x}", tag);
         }
 
