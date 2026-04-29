@@ -4,7 +4,7 @@ use crate::proto::net::{NetworkTransaction, RawResponse};
 pub struct SpaceScreenGetEisEnable;
 
 impl NetworkTransaction<'static> for SpaceScreenGetEisEnable {
-    const MAGIC: [u8; 2] = [0x28, 0x9b];
+    const MAGIC: [u8; 2] = [0x28, 0xa6];
     type RequestArgs = EmptyMessageRequest;
     type Response = RawResponse;
 }

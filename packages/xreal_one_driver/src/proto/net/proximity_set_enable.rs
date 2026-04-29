@@ -5,7 +5,7 @@ use crate::proto::net::NetworkTransaction;
 pub struct ProximitySetEnable;
 
 impl NetworkTransaction<'static> for ProximitySetEnable {
-    const MAGIC: [u8; 2] = [0x27, 0x18];
+    const MAGIC: [u8; 2] = [0x27, 0x19];
     type RequestArgs = SetPropertyRequest<SetNumericProperty<EnableValue>>;
     type Response = EmptyPropertyResponse;
 }
