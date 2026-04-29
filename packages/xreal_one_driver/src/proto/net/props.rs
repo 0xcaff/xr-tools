@@ -108,7 +108,17 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
             bail!("unexpected tag: 0x{:x}", tag);
         }
 
-        let _len = is.read_raw_varint64()?;
+        let len = is.read_raw_varint64()?;
+        if len == 0 {
+            is.check_eof()?;
+            let mut zero = protobuf::CodedInputStream::from_bytes(&[0]);
+            let value = V::read(&mut zero)?;
+            zero.check_eof()?;
+
+            return Ok(Self { value });
+        }
+
+        let old_limit = is.push_limit(len)?;
         let Some(tag) = is.read_raw_tag_or_eof()? else {
             bail!("unexpected end of stream");
         };
@@ -120,6 +130,8 @@ impl<V: PropertyValueRead> ProtobufRead for PropertyResponse<V> {
 
         let value = V::read(is)?;
 
+        is.check_eof()?;
+        is.pop_limit(old_limit);
         is.check_eof()?;
 
         Ok(Self { value })

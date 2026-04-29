@@ -5,7 +5,6 @@ pub use crate::proto::net::dp_get_current_edid_dsp::DisplayConfiguration;
 use crate::proto::net::dp_set_current_edid_dsp::DpSetCurrentEdidDsp;
 use crate::proto::net::dp_set_input_mode::DpSetInputMode;
 pub use crate::proto::net::dp_set_input_mode::InputMode;
-use crate::proto::net::enable_value::EnableValue;
 use crate::proto::net::get_config::GetConfig;
 use crate::proto::net::glasses_get_dsp_version::GlassesGetDspVersion;
 use crate::proto::net::glasses_get_id::GlassesGetId;
@@ -24,6 +23,7 @@ use crate::proto::net::space_screen_get_eis_enable::SpaceScreenGetEisEnable;
 use crate::proto::net::space_screen_set_eis_enable::SpaceScreenSetEisEnable;
 use crate::proto::net::{InboundMessage, NetworkTransaction, Response};
 use crate::proto::usb::RequestArgs;
+use anyhow::bail;
 use futures::Stream;
 use std::collections::HashMap;
 use std::io;
@@ -235,8 +235,7 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<SpaceScreenGetEisEnable>(EmptyMessageRequest)
             .await?;
-        let enabled = response.value.0;
-        Ok(enabled.0)
+        parse_enable_value(response.value.0, "NRSpaceScreenGetEisEnable")
     }
 
     pub async fn set_space_screen_eis_enable(
@@ -244,7 +243,7 @@ impl ControlNetworkDevice {
         enabled: bool,
     ) -> Result<(), anyhow::Error> {
         self.send_message::<SpaceScreenSetEisEnable>(SetPropertyRequest {
-            value: SetNumericProperty(EnableValue(enabled)),
+            value: SetNumericProperty(u8::from(enabled)),
         })
         .await?;
 
@@ -255,13 +254,12 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<ProximityIsEnable>(EmptyMessageRequest)
             .await?;
-        let enabled = response.value.0;
-        Ok(enabled.0)
+        parse_enable_value(response.value.0, "NRProximityIsEnable")
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
         self.send_message::<ProximitySetEnable>(SetPropertyRequest {
-            value: SetNumericProperty(EnableValue(enabled)),
+            value: SetNumericProperty(u8::from(enabled)),
         })
         .await?;
 
@@ -318,5 +316,17 @@ impl ControlNetworkDevice {
 
     pub async fn get_config(&mut self) -> Result<Config, anyhow::Error> {
         Ok(Config::parse(self.get_config_raw().await?.as_bytes())?)
+    }
+}
+
+fn parse_enable_value(value: u8, command_name: &str) -> Result<bool, anyhow::Error> {
+    match value {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => bail!(
+            "{} returned unexpected enable value {}",
+            command_name,
+            value
+        ),
     }
 }

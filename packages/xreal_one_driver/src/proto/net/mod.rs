@@ -4,7 +4,6 @@ pub mod display_set_scene_mode;
 pub mod dp_get_current_edid_dsp;
 pub mod dp_set_current_edid_dsp;
 pub mod dp_set_input_mode;
-pub mod enable_value;
 pub mod get_config;
 pub mod glasses_get_dsp_version;
 pub mod glasses_get_id;
