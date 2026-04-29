@@ -10,9 +10,7 @@ use crate::proto::net::glasses_get_dsp_version::GlassesGetDspVersion;
 use crate::proto::net::glasses_get_id::GlassesGetId;
 use crate::proto::net::glasses_get_sw_version::GlassesGetFwVersion;
 pub use crate::proto::net::key_submit_state::KeyStateChangeMessage;
-use crate::proto::net::props::{
-    EmptyMessageRequest, GetPropertyRequest, SetNumericProperty, SetPropertyRequest,
-};
+use crate::proto::net::props::{GetPropertyRequest, SetNumericProperty, SetPropertyRequest};
 use crate::proto::net::proximity_is_enable::ProximityIsEnable;
 use crate::proto::net::proximity_set_enable::ProximitySetEnable;
 pub use crate::proto::net::set_display_brightness::DisplayBrightness;
@@ -233,7 +231,7 @@ impl ControlNetworkDevice {
 
     pub async fn get_space_screen_eis_enable(&mut self) -> Result<bool, anyhow::Error> {
         let response = self
-            .send_message::<SpaceScreenGetEisEnable>(EmptyMessageRequest)
+            .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
             .await?;
         parse_enable_value(response.value.0, "NRSpaceScreenGetEisEnable")
     }
@@ -252,7 +250,7 @@ impl ControlNetworkDevice {
 
     pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
         let response = self
-            .send_message::<ProximityIsEnable>(EmptyMessageRequest)
+            .send_message::<ProximityIsEnable>(GetPropertyRequest)
             .await?;
         parse_enable_value(response.value.0, "NRProximityIsEnable")
     }

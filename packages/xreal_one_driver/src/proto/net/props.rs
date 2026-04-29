@@ -71,28 +71,6 @@ impl ProtobufWrite for GetPropertyRequest {
     }
 }
 
-pub struct EmptyMessageRequest;
-
-impl ProtobufWrite for EmptyMessageRequest {
-    fn write(&self, os: &mut protobuf::CodedOutputStream<'_>) -> Result<(), anyhow::Error> {
-        os.write_tag(3, WireType::LengthDelimited)?;
-        os.write_raw_varint64(0)?;
-
-        Ok(())
-    }
-}
-
-pub struct BoolRequest(pub bool);
-
-impl ProtobufWrite for BoolRequest {
-    fn write(&self, os: &mut protobuf::CodedOutputStream<'_>) -> Result<(), anyhow::Error> {
-        os.write_tag(1, WireType::Varint)?;
-        os.write_raw_varint32(u32::from(self.0))?;
-
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 pub struct PropertyResponse<V: PropertyValueRead> {
     pub value: V,
