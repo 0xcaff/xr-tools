@@ -233,7 +233,7 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
             .await?;
-        parse_enable_value(response.value.0, "NRSpaceScreenGetEisEnable")
+        parse_enable_value(response.0, "NRSpaceScreenGetEisEnable")
     }
 
     pub async fn set_space_screen_eis_enable(
@@ -252,7 +252,7 @@ impl ControlNetworkDevice {
         let response = self
             .send_message::<ProximityIsEnable>(GetPropertyRequest)
             .await?;
-        parse_enable_value(response.value.0, "NRProximityIsEnable")
+        parse_enable_value(response.0, "NRProximityIsEnable")
     }
 
     pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
