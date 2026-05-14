@@ -8,6 +8,7 @@ pub mod get_glasses_fw_version;
 pub mod get_internal_code;
 pub mod mcu_update;
 pub mod pilot_update;
+pub mod recovery;
 pub mod usb_config;
 
 pub use usb_config::UsbConfigList;
