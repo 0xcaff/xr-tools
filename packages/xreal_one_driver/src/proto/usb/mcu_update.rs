@@ -242,17 +242,18 @@ impl McuUpdate<'_> {
 }
 
 impl UsbDevice {
-    pub fn update_mcu(&self, update: McuUpdate) -> Result<(), anyhow::Error> {
+    pub async fn update_mcu(&self, update: McuUpdate<'_>) -> Result<(), anyhow::Error> {
         struct EmptyReporter;
 
         impl McuUpdateProgressReporter for EmptyReporter {}
 
         self.update_mcu_with_progress(update, &mut EmptyReporter)
+            .await
     }
 
-    pub fn update_mcu_with_progress(
+    pub async fn update_mcu_with_progress(
         &self,
-        update: McuUpdate,
+        update: McuUpdate<'_>,
         progress: &mut impl McuUpdateProgressReporter,
     ) -> Result<(), anyhow::Error> {
         let kernel_bytes = update.kernel_bytes();
@@ -262,7 +263,8 @@ impl UsbDevice {
         self.send_message::<McuUpdateKernelStart>(McuUpdateKernelStartRequest {
             checksum,
             length: kernel_bytes.len() as u32,
-        })?;
+        })
+        .await?;
 
         let mut offset = 0;
 
@@ -270,13 +272,14 @@ impl UsbDevice {
             let end_offset = std::cmp::min(offset + 1002, kernel_bytes.len());
             let segment = &kernel_bytes[offset..end_offset];
 
-            self.send_message::<McuUpdateKernelTransmit>(RawRequest(segment))?;
+            self.send_message::<McuUpdateKernelTransmit>(RawRequest(segment))
+                .await?;
             progress.transmit(end_offset - offset);
 
             offset = end_offset;
         }
 
-        self.send_message::<McuUpdateKernelFinish>(Empty)?;
+        self.send_message::<McuUpdateKernelFinish>(Empty).await?;
 
         for segment in &update.upgrade_header.segments {
             let segment_bytes = segment.load(update.bytes)?;
@@ -284,19 +287,22 @@ impl UsbDevice {
                 checksum: crc_adler::crc32(&segment_bytes),
                 flash_offset: segment.flash_offset,
                 decompressed_len: segment.decompress_size,
-            })?;
+            })
+            .await?;
 
             let mut offset = 0;
             while offset < segment_bytes.len() {
                 let end_offset = std::cmp::min(offset + 1002, segment_bytes.len());
                 let segment = &segment_bytes[offset..end_offset];
 
-                self.send_message::<McuUpdateSegmentTransmit>(RawRequest(segment))?;
+                self.send_message::<McuUpdateSegmentTransmit>(RawRequest(segment))
+                    .await?;
                 progress.transmit(end_offset - offset);
                 offset = end_offset;
             }
 
-            self.send_message::<McuUpdateSegmentFinish>(RawRequest(&[0xff]))?;
+            self.send_message::<McuUpdateSegmentFinish>(RawRequest(&[0xff]))
+                .await?;
         }
 
         Ok(())

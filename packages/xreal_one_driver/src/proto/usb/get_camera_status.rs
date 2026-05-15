@@ -1,6 +1,6 @@
 use crate::proto::usb::{Empty, Response, UsbTransaction};
 use crate::UsbDevice;
-use anyhow::{anyhow, Error};
+use anyhow::anyhow;
 
 pub struct GetCameraStatus;
 
@@ -16,7 +16,7 @@ pub struct GetCameraStatusResponse {
 }
 
 impl Response for GetCameraStatusResponse {
-    fn deserialize_from(buffer: &[u8]) -> Result<Self, Error> {
+    fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {
         assert_eq!(buffer.len(), 1);
         let plugged_in = match buffer[0] {
             0x00 => true,
@@ -29,7 +29,10 @@ impl Response for GetCameraStatusResponse {
 }
 
 impl UsbDevice {
-    pub fn get_camera_plugged(&self) -> Result<bool, anyhow::Error> {
-        Ok(self.send_message::<GetCameraStatus>(Empty)?.plugged_in)
+    pub async fn get_camera_plugged(&self) -> Result<bool, anyhow::Error> {
+        Ok(self
+            .send_message::<GetCameraStatus>(Empty)
+            .await?
+            .plugged_in)
     }
 }

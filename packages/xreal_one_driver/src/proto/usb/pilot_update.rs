@@ -37,35 +37,37 @@ pub trait PilotUpdateProgressReporter {
 }
 
 impl UsbDevice {
-    pub fn update_pilot(&self, update: &[u8]) -> Result<(), anyhow::Error> {
+    pub async fn update_pilot(&self, update: &[u8]) -> Result<(), anyhow::Error> {
         struct EmptyReporter;
         impl PilotUpdateProgressReporter for EmptyReporter {}
 
-        self.update_pilot_with_progress(update, &mut EmptyReporter)?;
+        self.update_pilot_with_progress(update, &mut EmptyReporter)
+            .await?;
 
         Ok(())
     }
 
-    pub fn update_pilot_with_progress(
+    pub async fn update_pilot_with_progress(
         &self,
         update: &[u8],
         progress: &mut impl PilotUpdateProgressReporter,
     ) -> Result<(), anyhow::Error> {
         let header = PilotFirmwareHeader::load(update)?;
 
-        self.send_message::<PilotUpdateStart>(header)?;
+        self.send_message::<PilotUpdateStart>(header).await?;
         progress.transmit(PilotFirmwareHeader::LEN);
 
         let mut position = PilotFirmwareHeader::LEN;
         while position < update.len() {
             let end_position = std::cmp::min(position + 1002, update.len());
-            self.send_message::<PilotUpdateTransmit>(RawRequest(&update[position..end_position]))?;
+            self.send_message::<PilotUpdateTransmit>(RawRequest(&update[position..end_position]))
+                .await?;
             progress.transmit(end_position - position);
 
             position = end_position;
         }
 
-        self.send_message::<PilotUpdateFinish>(Empty)?;
+        self.send_message::<PilotUpdateFinish>(Empty).await?;
 
         Ok(())
     }

@@ -46,18 +46,19 @@ async fn main() -> Result<(), anyhow::Error> {
                 .device_list()
                 .find_map(|it| Some(XrealOneModel::detect(it)?))
                 .ok_or_else(|| anyhow::anyhow!("no device found"))?;
-            let device = UsbDevice::open(&api, device)?;
+            let (device, usb_runner) = UsbDevice::open(&api, device)?;
+            tokio::spawn(usb_runner);
 
-            let dsp_fw_version = device.get_dsp_fw_version()?;
+            let dsp_fw_version = device.get_dsp_fw_version().await?;
             println!("dsp_fw_version: {}", dsp_fw_version);
 
-            let mcu_fw_version = device.get_mcu_fw_version()?;
+            let mcu_fw_version = device.get_mcu_fw_version().await?;
             println!("mcu_fw_version: {}", mcu_fw_version);
 
-            let camera_plugged = device.get_camera_plugged()?;
+            let camera_plugged = device.get_camera_plugged().await?;
             println!("camera plugged: {:?}", camera_plugged);
 
-            let usb_config = device.get_usb_config()?;
+            let usb_config = device.get_usb_config().await?;
             println!("usb config: {:#?}", usb_config);
 
             Ok(())
@@ -68,9 +69,12 @@ async fn main() -> Result<(), anyhow::Error> {
                 .device_list()
                 .find_map(|it| Some(XrealOneModel::detect(it)?))
                 .ok_or_else(|| anyhow::anyhow!("no device found"))?;
-            let device = UsbDevice::open(&api, device)?;
+            let (device, usb_runner) = UsbDevice::open(&api, device)?;
+            tokio::spawn(usb_runner);
 
-            device.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
+            device
+                .set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))
+                .await?;
 
             Ok(())
         }
@@ -88,7 +92,8 @@ async fn main() -> Result<(), anyhow::Error> {
                 .device_list()
                 .find_map(|it| Some(XrealOneModel::detect(it)?))
                 .ok_or_else(|| anyhow::anyhow!("no device found"))?;
-            let device = UsbDevice::open(&api, device)?;
+            let (device, usb_runner) = UsbDevice::open(&api, device)?;
+            tokio::spawn(usb_runner);
 
             let bar = indicatif::ProgressBar::new((pilot_bytes.len() + mcu_update.size()) as u64);
             bar.enable_steady_tick(Duration::from_millis(100));
@@ -109,7 +114,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
                 let mut wrapper = ProgressWrapper(bar);
 
-                device.update_mcu_with_progress(mcu_update, &mut wrapper)?;
+                device
+                    .update_mcu_with_progress(mcu_update, &mut wrapper)
+                    .await?;
 
                 wrapper.0
             };
@@ -126,7 +133,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
                 let mut wrapper = ProgressWrapper(bar);
 
-                device.update_pilot_with_progress(&pilot_bytes, &mut wrapper)?;
+                device
+                    .update_pilot_with_progress(&pilot_bytes, &mut wrapper)
+                    .await?;
 
                 wrapper.0
             };

@@ -15,7 +15,8 @@
 //! use xreal_one_driver::{XrealOneModel, UsbDevice};
 //! use xreal_one_driver::UsbConfigList;
 //!
-//! # fn main() -> anyhow::Result<()> {
+//! # #[tokio::main]
+//! # async fn main() -> anyhow::Result<()> {
 //! // Discover and open the device over HID
 //! let api = hidapi::HidApi::new()?;
 //! let model = api
@@ -23,8 +24,9 @@
 //!     .find_map(XrealOneModel::detect)
 //!     .expect("XREAL One not found");
 //!
-//! let usb = UsbDevice::open(&api, model)?;
-//! usb.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1))?;
+//! let (usb, usb_runner) = UsbDevice::open(&api, model)?;
+//! tokio::spawn(usb_runner);
+//! usb.set_usb_config(UsbConfigList::new().with_uvc0(1).with_enable(1)).await?;
 //! #     Ok(())
 //! # }
 //! ```
