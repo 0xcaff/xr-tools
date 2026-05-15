@@ -1,79 +1,8 @@
 use crate::proto::net::RawRequest;
-use crate::proto::usb::{Empty, RequestArgs, UsbDevice, UsbTransaction};
-use anyhow::bail;
-use bytemuck::{Pod, Zeroable};
-use std::borrow::Cow;
+use crate::proto::usb::firmware_header::FirmwareHeader;
+use crate::proto::usb::{Empty, UsbDevice, UsbTransaction};
 
-#[derive(Pod, Copy, Clone, Zeroable, Debug)]
-#[repr(C)]
-pub struct DspFirmwareHeader {
-    pub checksum_or_tag_raw: [u8; 4],
-    pub file_size_minus_8_raw: [u8; 4],
-    pub platform_code_raw: [u8; 4],
-    pub component_type_raw: [u8; 4],
-    pub version_raw: [u8; 20],
-    pub build_timestamp_raw: [u8; 16],
-    pub reserved: [u8; 12],
-}
-
-const _: [(); DspFirmwareHeader::LEN] = [(); size_of::<DspFirmwareHeader>()];
-
-impl DspFirmwareHeader {
-    pub const LEN: usize = 64;
-    pub const COMPONENT_TYPE: u32 = 3;
-
-    pub fn load(bytes: &[u8]) -> Result<&Self, anyhow::Error> {
-        if bytes.len() < Self::LEN {
-            bail!("DSP update must be at least {} bytes", Self::LEN);
-        }
-
-        let header = bytemuck::from_bytes::<Self>(&bytes[..Self::LEN]);
-        if header.component_type() != Self::COMPONENT_TYPE {
-            bail!(
-                "invalid DSP component type {}, expected {}",
-                header.component_type(),
-                Self::COMPONENT_TYPE
-            );
-        }
-
-        Ok(header)
-    }
-
-    pub fn checksum_or_tag(&self) -> u32 {
-        u32::from_le_bytes(self.checksum_or_tag_raw)
-    }
-
-    pub fn file_size_minus_8(&self) -> u32 {
-        u32::from_le_bytes(self.file_size_minus_8_raw)
-    }
-
-    pub fn platform_code(&self) -> u32 {
-        u32::from_le_bytes(self.platform_code_raw)
-    }
-
-    pub fn component_type(&self) -> u32 {
-        u32::from_le_bytes(self.component_type_raw)
-    }
-
-    pub fn version(&self) -> Result<&str, std::str::Utf8Error> {
-        nul_trimmed_str(&self.version_raw)
-    }
-
-    pub fn build_timestamp(&self) -> Result<&str, std::str::Utf8Error> {
-        nul_trimmed_str(&self.build_timestamp_raw)
-    }
-}
-
-impl<'a> RequestArgs<'a> for &'a DspFirmwareHeader {
-    fn as_bytes(&self) -> Result<Cow<'a, [u8]>, anyhow::Error> {
-        Ok(Cow::Borrowed(bytemuck::bytes_of(*self)))
-    }
-}
-
-fn nul_trimmed_str(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
-    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
-    std::str::from_utf8(&bytes[..end])
-}
+pub type DspFirmwareHeader = FirmwareHeader<3>;
 
 pub struct DspUpdateStart;
 

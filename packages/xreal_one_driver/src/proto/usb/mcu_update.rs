@@ -1,4 +1,5 @@
 use crate::proto::net::RawRequest;
+use crate::proto::usb::firmware_header::FirmwareHeader;
 use crate::proto::usb::{Empty, RequestArgs, UsbDevice, UsbTransaction};
 use anyhow::bail;
 use binrw::{binrw, BinReaderExt};
@@ -90,6 +91,8 @@ impl RequestArgs<'static> for McuUpdateSegmentFinishRequest {
         Ok(Cow::Borrowed(&[0xff]))
     }
 }
+
+pub type McuRecoveryFirmwareHeader = FirmwareHeader<1>;
 
 #[binrw]
 #[brw(little)]
