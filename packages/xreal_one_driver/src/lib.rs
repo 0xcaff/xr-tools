@@ -11,7 +11,7 @@
 //! queries (enable mtp or camera). see the methods on [`UsbDevice`]
 //!
 //! ### usage
-//! ```rust
+//! ```rust,no_run
 //! use xreal_one_driver::{XrealOneModel, UsbDevice};
 //! use xreal_one_driver::UsbConfigList;
 //!
@@ -39,7 +39,7 @@
 //! and reading versions/ids.
 //!
 //! ### usage
-//! ```rust
+//! ```rust,no_run
 //! use futures::StreamExt;
 //! use xreal_one_driver::ControlNetworkDevice;
 //!
@@ -65,7 +65,7 @@
 //! values in a consistent coordinate system, suitable for ahrs/orientation estimation.
 //!
 //! ### usage
-//! ```rust
+//! ```rust,no_run
 //! use futures::StreamExt;
 //! use xreal_one_driver::proto::net::reports;
 //! use xreal_one_driver::ReportType;

@@ -106,10 +106,12 @@ pub struct UsbDevice {
         UsbWriteCommand,
         tokio::sync::oneshot::Sender<UsbInboundMessage>,
     )>,
+    events_tx: tokio::sync::broadcast::Sender<UsbInboundMessage>,
     model: XrealOneModelKind,
 }
 
 const USB_COMMAND_QUEUE_CAPACITY: usize = 1;
+const USB_EVENT_QUEUE_CAPACITY: usize = 1024;
 
 impl UsbDevice {
     pub fn open(
@@ -132,6 +134,8 @@ impl UsbDevice {
             UsbWriteCommand,
             tokio::sync::oneshot::Sender<UsbInboundMessage>,
         )>(USB_COMMAND_QUEUE_CAPACITY);
+        let (events_tx, _) =
+            tokio::sync::broadcast::channel::<UsbInboundMessage>(USB_EVENT_QUEUE_CAPACITY);
 
         type PendingRequests =
             Arc<Mutex<HashMap<(u32, [u8; 2]), tokio::sync::oneshot::Sender<UsbInboundMessage>>>>;
@@ -139,9 +143,11 @@ impl UsbDevice {
         let pending_requests = PendingRequests::default();
         let task = {
             let pending_requests = pending_requests.clone();
+            let events_tx = events_tx.clone();
 
             async move {
                 let read_pending_requests = pending_requests.clone();
+                let read_events_tx = events_tx.clone();
                 tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
                     let mut body = [0u8; 1024];
 
@@ -150,20 +156,19 @@ impl UsbDevice {
 
                         let message = UsbInboundMessage::parse(&body[..bytes_read])?;
 
-                        let mut pending_requests = read_pending_requests
-                            .lock()
-                            .map_err(|_| anyhow!("failed to lock pending requests"))?;
-                        let exact_key = (message.request_id, message.command);
-                        let Some(response_tx) = pending_requests.remove(&exact_key) else {
-                            bail!(
-                                "received message with unknown request ID and command: {:?}",
-                                message
-                            );
+                        let response_tx = {
+                            let mut pending_requests = read_pending_requests
+                                .lock()
+                                .map_err(|_| anyhow!("failed to lock pending requests"))?;
+                            let exact_key = (message.request_id, message.command);
+                            pending_requests.remove(&exact_key)
                         };
 
-                        response_tx
-                            .send(message)
-                            .map_err(|_| anyhow!("failed to send response for message"))?;
+                        if let Some(response_tx) = response_tx {
+                            let _ = response_tx.send(message);
+                        } else {
+                            let _ = read_events_tx.send(message);
+                        }
                     }
                 });
 
@@ -204,10 +209,15 @@ impl UsbDevice {
         Ok((
             Self {
                 command_tx,
+                events_tx,
                 model: device.kind,
             },
             task,
         ))
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<UsbInboundMessage> {
+        self.events_tx.subscribe()
     }
 
     pub(crate) async fn send_message<'req, Txn: UsbTransaction<'req>>(
