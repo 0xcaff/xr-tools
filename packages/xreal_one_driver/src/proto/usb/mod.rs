@@ -3,6 +3,7 @@ use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 use std::mem::offset_of;
 
+pub mod dsp_update;
 pub mod get_camera_status;
 pub mod get_glasses_fw_version;
 pub mod get_internal_code;
