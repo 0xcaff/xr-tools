@@ -110,7 +110,6 @@ pub struct UsbDevice {
 }
 
 const USB_COMMAND_QUEUE_CAPACITY: usize = 1;
-const USB_EVENT_QUEUE_CAPACITY: usize = 1024;
 
 impl UsbDevice {
     pub fn open(
@@ -142,31 +141,30 @@ impl UsbDevice {
             let pending_requests = pending_requests.clone();
 
             async move {
-                let pending_requests = pending_requests.clone();
-                tokio::task::spawn_blocking(|| {
+                let read_pending_requests = pending_requests.clone();
+                tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
+                    let mut body = [0u8; 1024];
 
-                        let mut body = [0u8; 1024];
+                    loop {
+                        let bytes_read = read_device.read(&mut body)?;
 
-                        loop {
-                            let bytes_read = read_device.read(&mut body)?;
+                        let message = UsbInboundMessage::parse(&body[..bytes_read])?;
 
-                            let message = UsbInboundMessage::parse(&body[..bytes_read])?;
+                        let mut pending_requests = read_pending_requests
+                            .lock()
+                            .map_err(|_| anyhow!("failed to lock pending requests"))?;
+                        let exact_key = (message.request_id, message.command);
+                        let Some(response_tx) = pending_requests.remove(&exact_key) else {
+                            bail!(
+                                "received message with unknown request ID and command: {:?}",
+                                message
+                            );
+                        };
 
-                            let mut pending_requests = pending_requests
-                                .lock()
-                                .map_err(|_| anyhow!("failed to lock pending requests"))?;
-                            let exact_key = (message.request_id, message.command);
-                            let Some(response_tx) = pending_requests.remove(&exact_key) else {
-                                bail!(
-                                    "received message with unknown request ID and command: {:?}",
-                                    message
-                                );
-                            };
-
-                            response_tx
-                                .send(message)
-                                .map_err(|_| anyhow!("failed to send response for message"))?;
-                        }
+                        response_tx
+                            .send(message)
+                            .map_err(|_| anyhow!("failed to send response for message"))?;
+                    }
                 });
 
                 let mut request_id = 1u32;

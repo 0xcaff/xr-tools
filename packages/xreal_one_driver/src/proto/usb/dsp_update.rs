@@ -1,8 +1,6 @@
 use crate::proto::net::RawRequest;
 use crate::proto::usb::firmware_header::FirmwareHeader;
-use crate::proto::usb::{Empty, UsbDevice, UsbInboundMessage, UsbTransaction};
-use anyhow::bail;
-use std::time::Duration;
+use crate::proto::usb::{Empty, UsbDevice, UsbTransaction};
 
 pub type DspFirmwareHeader = FirmwareHeader<3>;
 
