@@ -83,49 +83,8 @@ impl UsbDevice {
             position = end_position;
         }
 
-        let mut events = self.subscribe();
         self.send_message::<DspUpdateFinish>(Empty).await?;
 
-        wait_dsp_phase(&mut events, DspUpdatePhase::WriteFlash, progress).await?;
-        wait_dsp_phase(&mut events, DspUpdatePhase::Boot, progress).await?;
-        wait_dsp_phase(&mut events, DspUpdatePhase::ReadFlash, progress).await?;
-
         Ok(())
-    }
-}
-
-async fn wait_dsp_phase(
-    events: &mut tokio::sync::broadcast::Receiver<UsbInboundMessage>,
-    phase: DspUpdatePhase,
-    progress: &mut impl DspUpdateProgressReporter,
-) -> Result<(), anyhow::Error> {
-    let (progress_command, finish_command) = phase.commands();
-
-    loop {
-        let message = tokio::time::timeout(Duration::from_secs(16), events.recv())
-            .await
-            .map_err(|_| anyhow::anyhow!("timed out waiting for DSP {phase:?} progress"))?;
-        let message = match message {
-            Ok(message) => message,
-            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                bail!("lost {skipped} USB inbound messages while waiting for DSP {phase:?}")
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                bail!("USB inbound event stream closed while waiting for DSP {phase:?}")
-            }
-        };
-
-        if message.command == progress_command {
-            progress.device_progress(phase, message.status);
-            continue;
-        }
-
-        if message.command == finish_command {
-            if message.status != 0 {
-                bail!("DSP {phase:?} failed with status {}", message.status);
-            }
-
-            return Ok(());
-        }
     }
 }
