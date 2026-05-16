@@ -58,13 +58,16 @@ def run(args):
                 "hardwareCode": int(hardware_code),
                 "versionCode": 1,
             }
+
             url = (
                 "https://app-api.xreal.com/api/nebula/v1/isc/device/package"
                 f"?{urllib.parse.urlencode(params)}"
             )
+
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
             doc = resp.json()
+
             save_package(doc, output_root / target.package_name, int(hardware_code))
 
 
