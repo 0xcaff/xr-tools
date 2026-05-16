@@ -6,7 +6,7 @@ use xreal_one_driver::proto::usb::dsp_update::{DspUpdatePhase, DspUpdateProgress
 
 #[derive(Debug, clap::Args)]
 pub struct Args {
-    pub dsp_path: PathBuf,
+    pub path: PathBuf,
 }
 
 struct DspProgressWrapper(ProgressBar);
@@ -32,7 +32,7 @@ impl DspUpdateProgressReporter for DspProgressWrapper {
 }
 
 pub async fn run(args: Args) -> Result<(), anyhow::Error> {
-    let dsp_bytes = std::fs::read(args.dsp_path)?;
+    let dsp_bytes = std::fs::read(args.path)?;
 
     let api = hidapi::HidApi::new()?;
     let (device, _usb_runner) = open_normal_usb_device(&api)?;

@@ -12,30 +12,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    GetConfig {
-        #[command(flatten)]
-        args: commands::get_config::Args,
+    GetConfig,
+    Info,
+    EnableCamera,
+    Flash {
+        #[command(subcommand)]
+        command: commands::flash::Command,
     },
-    Info {
-        #[command(flatten)]
-        args: commands::info::Args,
-    },
-    EnableCamera {
-        #[command(flatten)]
-        args: commands::enable_camera::Args,
-    },
-    Update {
-        #[command(flatten)]
-        args: commands::update::Args,
-    },
-    FlashDsp {
-        #[command(flatten)]
-        args: commands::flash_dsp::Args,
-    },
-    RecoverMcu {
-        #[command(flatten)]
-        args: commands::recover_mcu::Args,
-    },
+    RestartRecovery,
 }
 
 #[tokio::main]
@@ -43,11 +27,10 @@ async fn main() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::GetConfig { args } => commands::get_config::run(args).await,
-        Command::Info { args } => commands::info::run(args).await,
-        Command::EnableCamera { args } => commands::enable_camera::run(args).await,
-        Command::Update { args } => commands::update::run(args).await,
-        Command::FlashDsp { args } => commands::flash_dsp::run(args).await,
-        Command::RecoverMcu { args } => commands::recover_mcu::run(args).await,
+        Command::GetConfig => commands::get_config::run().await,
+        Command::Info => commands::info::run().await,
+        Command::EnableCamera => commands::enable_camera::run().await,
+        Command::Flash { command } => commands::flash::run(command).await,
+        Command::RestartRecovery => commands::restart_recovery::run().await,
     }
 }

@@ -1,9 +1,6 @@
 use crate::usb::open_normal_usb_device;
 
-#[derive(Debug, clap::Args)]
-pub struct Args {}
-
-pub async fn run(_args: Args) -> Result<(), anyhow::Error> {
+pub async fn run() -> Result<(), anyhow::Error> {
     let api = hidapi::HidApi::new()?;
     let (device, _usb_runner) = open_normal_usb_device(&api)?;
 

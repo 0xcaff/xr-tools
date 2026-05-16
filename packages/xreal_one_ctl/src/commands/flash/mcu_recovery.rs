@@ -1,13 +1,12 @@
-use crate::usb::{try_open_normal_usb_device, wait_for_recovery_usb_device};
+use crate::usb::wait_for_recovery_usb_device;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::time::sleep;
 use xreal_one_driver::proto::usb::mcu_update::McuUpdateProgressReporter;
 
 #[derive(Debug, clap::Args)]
 pub struct Args {
-    pub mcu_path: PathBuf,
+    pub path: PathBuf,
 }
 
 struct RecoveryProgressWrapper {
@@ -64,8 +63,7 @@ impl McuUpdateProgressReporter for RecoveryProgressWrapper {
 }
 
 pub async fn run(args: Args) -> Result<(), anyhow::Error> {
-    let mcu_bytes = std::fs::read(args.mcu_path)?;
-
+    let mcu_bytes = std::fs::read(args.path)?;
     let mut api = hidapi::HidApi::new()?;
 
     let bar = ProgressBar::new(mcu_bytes.len() as u64);
@@ -73,22 +71,6 @@ pub async fn run(args: Args) -> Result<(), anyhow::Error> {
     bar.set_style(ProgressStyle::with_template(
         "{decimal_bytes}/{decimal_total_bytes} {bar} {bytes_per_sec} ({elapsed_precise} / {eta_precise}) {msg}",
     )?);
-    bar.set_message("looking for running device");
-
-    api.refresh_devices()?;
-    if let Some((normal_device, normal_runner)) = try_open_normal_usb_device(&api)? {
-        bar.set_message("setting recovery boot flag");
-        normal_device.set_uboot_upgrade_flag().await?;
-
-        bar.set_message("rebooting into recovery");
-        normal_device.system_reboot().await?;
-
-        drop(normal_device);
-        normal_runner.abort();
-        sleep(Duration::from_secs(1)).await;
-    } else {
-        bar.set_message("running device not found; waiting for recovery");
-    }
 
     bar.set_message("waiting for recovery device");
     let (recovery_device, _recovery_runner) =
