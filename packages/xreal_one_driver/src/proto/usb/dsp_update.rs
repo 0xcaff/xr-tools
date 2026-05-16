@@ -40,7 +40,7 @@ pub trait DspUpdateProgressReporter {
 //     Boot,
 //     ReadFlash,
 // }
-// 
+//
 // impl DspUpdatePhase {
 //     fn commands(self) -> ([u8; 2], [u8; 2]) {
 //         match self {
@@ -50,14 +50,14 @@ pub trait DspUpdateProgressReporter {
 //         }
 //     }
 // }
-// 
+//
 // async fn wait_phase(
 //     events: &mut tokio::sync::broadcast::Receiver<UsbInboundMessage>,
 //     phase: DspUpdatePhase,
 //     progress: &mut impl DspUpdateProgressReporter,
 // ) -> Result<(), anyhow::Error> {
 //     let (progress_command, finish_command) = phase.commands();
-// 
+//
 //     loop {
 //         let message = match events.recv().await {
 //             Ok(message) => message,
@@ -68,7 +68,7 @@ pub trait DspUpdateProgressReporter {
 //                 "USB event stream lagged by {skipped} messages while waiting for DSP {phase:?}"
 //             ),
 //         };
-// 
+//
 //         if message.command == progress_command {
 //             if !message.payload.is_empty() {
 //                 bail!(
@@ -82,7 +82,7 @@ pub trait DspUpdateProgressReporter {
 //                     message.status
 //                 );
 //             }
-// 
+//
 //             progress.device_progress(phase, message.status);
 //         } else if message.command == finish_command {
 //             if !message.payload.is_empty() {
@@ -99,33 +99,33 @@ pub trait DspUpdateProgressReporter {
 //                     message.status
 //                 );
 //             }
-// 
+//
 //             return Ok(());
 //         }
 //     }
 // }
-// 
+//
 // impl UsbDevice {
 //     pub async fn update_dsp(&self, update: &[u8]) -> Result<(), anyhow::Error> {
 //         struct EmptyReporter;
 //         impl DspUpdateProgressReporter for EmptyReporter {}
-// 
+//
 //         self.update_dsp_with_progress(update, &mut EmptyReporter)
 //             .await?;
-// 
+//
 //         Ok(())
 //     }
-// 
+//
 //     pub async fn update_dsp_with_progress(
 //         &self,
 //         update: &[u8],
 //         progress: &mut impl DspUpdateProgressReporter,
 //     ) -> Result<(), anyhow::Error> {
 //         let header = DspFirmwareHeader::load(update)?;
-// 
+//
 //         self.endpoint.send_message::<DspUpdateStart>(header).await?;
 //         progress.transmit(DspFirmwareHeader::LEN);
-// 
+//
 //         let mut position = DspFirmwareHeader::LEN;
 //         while position < update.len() {
 //             let end_position = std::cmp::min(position + 1002, update.len());
@@ -133,18 +133,18 @@ pub trait DspUpdateProgressReporter {
 //                 .send_message::<DspUpdateTransmit>(RawRequest(&update[position..end_position]))
 //                 .await?;
 //             progress.transmit(end_position - position);
-// 
+//
 //             position = end_position;
 //         }
-// 
+//
 //         let mut events = self.endpoint.subscribe();
 //         self.endpoint.send_message::<DspUpdateFinish>(Empty).await?;
-// 
+//
 //         wait_phase(&mut events, DspUpdatePhase::WriteFlash, progress).await?;
 //         wait_phase(&mut events, DspUpdatePhase::Boot, progress).await?;
 //         wait_phase(&mut events, DspUpdatePhase::ReadFlash, progress).await?;
-// 
+//
 //         Ok(())
 //     }
 // }
-// 
+//
