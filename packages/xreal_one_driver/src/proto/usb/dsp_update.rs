@@ -115,21 +115,22 @@ impl UsbDevice {
     ) -> Result<(), anyhow::Error> {
         let header = DspFirmwareHeader::load(update)?;
 
-        self.send_message::<DspUpdateStart>(header).await?;
+        self.endpoint.send_message::<DspUpdateStart>(header).await?;
         progress.transmit(DspFirmwareHeader::LEN);
 
         let mut position = DspFirmwareHeader::LEN;
         while position < update.len() {
             let end_position = std::cmp::min(position + 1002, update.len());
-            self.send_message::<DspUpdateTransmit>(RawRequest(&update[position..end_position]))
+            self.endpoint
+                .send_message::<DspUpdateTransmit>(RawRequest(&update[position..end_position]))
                 .await?;
             progress.transmit(end_position - position);
 
             position = end_position;
         }
 
-        let mut events = self.subscribe();
-        self.send_message::<DspUpdateFinish>(Empty).await?;
+        let mut events = self.endpoint.subscribe();
+        self.endpoint.send_message::<DspUpdateFinish>(Empty).await?;
 
         wait_phase(&mut events, DspUpdatePhase::WriteFlash, progress).await?;
         wait_phase(&mut events, DspUpdatePhase::Boot, progress).await?;

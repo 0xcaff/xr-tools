@@ -31,6 +31,7 @@ impl Response for GetCameraStatusResponse {
 impl UsbDevice {
     pub async fn get_camera_plugged(&self) -> Result<bool, anyhow::Error> {
         Ok(self
+            .endpoint
             .send_message::<GetCameraStatus>(Empty)
             .await?
             .plugged_in)

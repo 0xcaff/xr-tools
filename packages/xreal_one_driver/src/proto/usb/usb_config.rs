@@ -65,11 +65,16 @@ impl Response for GetUsbConfigAllResponse {
 
 impl UsbDevice {
     pub async fn get_usb_config(&self) -> Result<UsbConfigList, anyhow::Error> {
-        Ok(self.send_message::<GetUsbConfigAll>(Empty).await?.config)
+        Ok(self
+            .endpoint
+            .send_message::<GetUsbConfigAll>(Empty)
+            .await?
+            .config)
     }
 
     pub async fn set_usb_config(&self, config: UsbConfigList) -> Result<(), anyhow::Error> {
-        self.send_message::<SetUsbConfigAll>(SetUsbConfigAllRequest { config })
+        self.endpoint
+            .send_message::<SetUsbConfigAll>(SetUsbConfigAllRequest { config })
             .await?;
 
         Ok(())

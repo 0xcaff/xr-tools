@@ -18,12 +18,14 @@ impl UsbTransaction<'static> for SystemReboot {
 
 impl UsbDevice {
     pub async fn set_uboot_upgrade_flag(&self) -> Result<(), anyhow::Error> {
-        self.send_message::<SetUbootUpgradeFlag>(Empty).await?;
+        self.endpoint
+            .send_message::<SetUbootUpgradeFlag>(Empty)
+            .await?;
         Ok(())
     }
 
     pub async fn system_reboot(&self) -> Result<(), anyhow::Error> {
-        self.send_message::<SystemReboot>(Empty).await?;
+        self.endpoint.send_message::<SystemReboot>(Empty).await?;
         Ok(())
     }
 }

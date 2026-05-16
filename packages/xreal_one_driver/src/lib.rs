@@ -92,4 +92,6 @@ pub mod proto;
 pub use proto::net::config;
 pub use proto::net::control::*;
 pub use proto::net::reports::*;
-pub use proto::usb::{UsbConfigList, UsbDevice, XrealOneModel};
+pub use proto::usb::{
+    RecoveryUsbDevice, UsbConfigList, UsbDevice, XrealOneModel, XrealOneRecoveryModel,
+};

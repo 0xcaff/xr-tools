@@ -46,6 +46,7 @@ impl Response for GetGlassesFwVersionResponse {
 impl UsbDevice {
     pub async fn get_mcu_fw_version(&self) -> Result<String, anyhow::Error> {
         Ok(self
+            .endpoint
             .send_message::<GetGlassesMcuFwVersion>(Empty)
             .await?
             .version)
@@ -53,6 +54,7 @@ impl UsbDevice {
 
     pub async fn get_dsp_fw_version(&self) -> Result<String, anyhow::Error> {
         Ok(self
+            .endpoint
             .send_message::<GetGlassesDspFwVersion>(Empty)
             .await?
             .version)
@@ -60,6 +62,7 @@ impl UsbDevice {
 
     pub async fn get_pilot_fw_version(&self) -> Result<String, anyhow::Error> {
         Ok(self
+            .endpoint
             .send_message::<GetGlassesPilotFw>(RawRequest(&[0x02]))
             .await?
             .version)
