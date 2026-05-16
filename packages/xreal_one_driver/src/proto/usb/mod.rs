@@ -114,6 +114,10 @@ impl XrealOneModel<'_> {
     pub fn product_string(&self) -> Option<&str> {
         self.device.product_string()
     }
+
+    pub fn serial_number(&self) -> Option<&str> {
+        self.device.serial_number()
+    }
 }
 
 pub struct XrealOneRecoveryModel<'a> {
@@ -150,6 +154,10 @@ impl XrealOneRecoveryModel<'_> {
 
     pub fn product_string(&self) -> Option<&str> {
         self.device.product_string()
+    }
+
+    pub fn serial_number(&self) -> Option<&str> {
+        self.device.serial_number()
     }
 }
 
