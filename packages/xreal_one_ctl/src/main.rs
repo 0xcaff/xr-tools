@@ -14,6 +14,12 @@ struct Cli {
 enum Command {
     GetConfig,
     Info,
+    Enable {
+        target: commands::target::Target,
+    },
+    Disable {
+        target: commands::target::Target,
+    },
     EnableCamera,
     Flash {
         #[command(subcommand)]
@@ -29,6 +35,8 @@ async fn main() -> Result<(), anyhow::Error> {
     match cli.command {
         Command::GetConfig => commands::get_config::run().await,
         Command::Info => commands::info::run().await,
+        Command::Enable { target } => commands::target::run(target, true).await,
+        Command::Disable { target } => commands::target::run(target, false).await,
         Command::EnableCamera => commands::enable_camera::run().await,
         Command::Flash { command } => commands::flash::run(command).await,
         Command::RestartRecovery => commands::restart_recovery::run().await,

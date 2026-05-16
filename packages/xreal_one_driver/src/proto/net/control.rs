@@ -11,12 +11,17 @@ use crate::proto::net::glasses_get_id::GlassesGetId;
 use crate::proto::net::glasses_get_sw_version::GlassesGetFwVersion;
 pub use crate::proto::net::key_submit_state::KeyStateChangeMessage;
 use crate::proto::net::props::{GetPropertyRequest, SetNumericProperty, SetPropertyRequest};
+use crate::proto::net::proximity_is_enable::ProximityIsEnable;
+use crate::proto::net::proximity_set_enable::ProximitySetEnable;
 pub use crate::proto::net::set_display_brightness::DisplayBrightness;
 use crate::proto::net::set_display_brightness::SetDisplayBrightness;
 pub use crate::proto::net::set_elechromic_dimmer::ElectricDimmerLevel;
 use crate::proto::net::set_elechromic_dimmer::SetElechromicDimmer;
+use crate::proto::net::space_screen_get_eis_enable::SpaceScreenGetEisEnable;
+use crate::proto::net::space_screen_set_eis_enable::SpaceScreenSetEisEnable;
 use crate::proto::net::{InboundMessage, NetworkTransaction, Response};
 use crate::proto::usb::RequestArgs;
+use anyhow::bail;
 use futures::Stream;
 use std::collections::HashMap;
 use std::io;
@@ -224,6 +229,41 @@ impl ControlNetworkDevice {
         Ok(())
     }
 
+    pub async fn get_space_screen_eis_enable(&mut self) -> Result<bool, anyhow::Error> {
+        let response = self
+            .send_message::<SpaceScreenGetEisEnable>(GetPropertyRequest)
+            .await?;
+        parse_enable_value(response.0, "NRSpaceScreenGetEisEnable")
+    }
+
+    pub async fn set_space_screen_eis_enable(
+        &mut self,
+        enabled: bool,
+    ) -> Result<(), anyhow::Error> {
+        self.send_message::<SpaceScreenSetEisEnable>(SetPropertyRequest {
+            value: SetNumericProperty(u8::from(enabled)),
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_proximity_enable(&mut self) -> Result<bool, anyhow::Error> {
+        let response = self
+            .send_message::<ProximityIsEnable>(GetPropertyRequest)
+            .await?;
+        parse_enable_value(response.0, "NRProximityIsEnable")
+    }
+
+    pub async fn set_proximity_enable(&mut self, enabled: bool) -> Result<(), anyhow::Error> {
+        self.send_message::<ProximitySetEnable>(SetPropertyRequest {
+            value: SetNumericProperty(u8::from(enabled)),
+        })
+        .await?;
+
+        Ok(())
+    }
+
     // async fn get_display_configuration(&mut self) -> Result<DisplayConfiguration, anyhow::Error> {
     //     Ok(self
     //         .send_message::<DpGetCurrentEdidDsp>(GetPropertyRequest)
@@ -274,5 +314,17 @@ impl ControlNetworkDevice {
 
     pub async fn get_config(&mut self) -> Result<Config, anyhow::Error> {
         Ok(Config::parse(self.get_config_raw().await?.as_bytes())?)
+    }
+}
+
+fn parse_enable_value(value: u8, command_name: &str) -> Result<bool, anyhow::Error> {
+    match value {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => bail!(
+            "{} returned unexpected enable value {}",
+            command_name,
+            value
+        ),
     }
 }
