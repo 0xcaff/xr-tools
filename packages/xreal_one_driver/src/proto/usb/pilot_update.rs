@@ -1,14 +1,15 @@
 use crate::proto::net::RawRequest;
-use crate::proto::usb::{Empty, RawResponse, UsbDevice, UsbTransaction};
+use crate::proto::usb::firmware_header::FirmwareHeader;
+use crate::proto::usb::{Empty, RawResponse, UsbTransaction};
 use std::marker::PhantomData;
 
-pub struct PilotUpdateStart<'a> {
-    phantom_data: PhantomData<&'a ()>,
-}
+pub type PilotFirmwareHeader = FirmwareHeader<4>;
 
-impl<'req> UsbTransaction<'req> for PilotUpdateStart<'req> {
+pub struct PilotUpdateStart;
+
+impl<'req> UsbTransaction<'req> for PilotUpdateStart {
     const COMMAND_ID: [u8; 2] = [0x14, 0x12];
-    type RequestArgs = RawRequest<'req>;
+    type RequestArgs = &'req PilotFirmwareHeader;
 
     type Response = RawResponse;
 }
@@ -35,35 +36,44 @@ pub trait PilotUpdateProgressReporter {
     fn transmit(&mut self, _length: usize) {}
 }
 
-impl UsbDevice {
-    pub fn update_pilot(&self, update: &[u8]) -> Result<(), anyhow::Error> {
-        struct EmptyReporter;
-        impl PilotUpdateProgressReporter for EmptyReporter {}
-
-        self.update_pilot_with_progress(update, &mut EmptyReporter)?;
-
-        Ok(())
-    }
-
-    pub fn update_pilot_with_progress(
-        &self,
-        update: &[u8],
-        progress: &mut impl PilotUpdateProgressReporter,
-    ) -> Result<(), anyhow::Error> {
-        self.send_message::<PilotUpdateStart>(RawRequest(&update[0..64]))?;
-        progress.transmit(64);
-
-        let mut position = 64;
-        while position < update.len() {
-            let end_position = std::cmp::min(position + 1002, update.len());
-            self.send_message::<PilotUpdateTransmit>(RawRequest(&update[position..end_position]))?;
-            progress.transmit(end_position - position);
-
-            position = end_position;
-        }
-
-        self.send_message::<PilotUpdateFinish>(Empty)?;
-
-        Ok(())
-    }
-}
+// impl UsbDevice {
+//     pub async fn update_pilot(&self, update: &[u8]) -> Result<(), anyhow::Error> {
+//         struct EmptyReporter;
+//         impl PilotUpdateProgressReporter for EmptyReporter {}
+//
+//         self.update_pilot_with_progress(update, &mut EmptyReporter)
+//             .await?;
+//
+//         Ok(())
+//     }
+//
+//     pub async fn update_pilot_with_progress(
+//         &self,
+//         update: &[u8],
+//         progress: &mut impl PilotUpdateProgressReporter,
+//     ) -> Result<(), anyhow::Error> {
+//         let header = PilotFirmwareHeader::load(update)?;
+//
+//         self.endpoint
+//             .send_message::<PilotUpdateStart>(header)
+//             .await?;
+//         progress.transmit(PilotFirmwareHeader::LEN);
+//
+//         let mut position = PilotFirmwareHeader::LEN;
+//         while position < update.len() {
+//             let end_position = std::cmp::min(position + 1002, update.len());
+//             self.endpoint
+//                 .send_message::<PilotUpdateTransmit>(RawRequest(&update[position..end_position]))
+//                 .await?;
+//             progress.transmit(end_position - position);
+//
+//             position = end_position;
+//         }
+//
+//         self.endpoint
+//             .send_message::<PilotUpdateFinish>(Empty)
+//             .await?;
+//
+//         Ok(())
+//     }
+// }

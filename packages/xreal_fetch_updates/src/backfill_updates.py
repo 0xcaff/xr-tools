@@ -31,7 +31,7 @@ def run_backfill(args):
 
         for package in packages:
             hardware_code = package["hardwareCode"]
-            save_package({"data": package}, output_root, hardware_code)
+            save_package({"data": package}, output_root / args.backfill_package_name, hardware_code)
 
 
 def main():

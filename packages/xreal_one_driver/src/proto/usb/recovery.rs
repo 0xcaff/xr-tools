@@ -1,0 +1,31 @@
+use crate::proto::usb::{Empty, UsbDevice, UsbTransaction};
+
+pub struct SetUbootUpgradeFlag;
+
+impl UsbTransaction<'static> for SetUbootUpgradeFlag {
+    const COMMAND_ID: [u8; 2] = [0x3e, 0x00];
+    type RequestArgs = Empty;
+    type Response = ();
+}
+
+pub struct SystemReboot;
+
+impl UsbTransaction<'static> for SystemReboot {
+    const COMMAND_ID: [u8; 2] = [0x44, 0x00];
+    type RequestArgs = Empty;
+    type Response = ();
+}
+
+impl UsbDevice {
+    pub async fn set_uboot_upgrade_flag(&self) -> Result<(), anyhow::Error> {
+        self.endpoint
+            .send_message::<SetUbootUpgradeFlag>(Empty)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn system_reboot(&self) -> Result<(), anyhow::Error> {
+        self.endpoint.send_message::<SystemReboot>(Empty).await?;
+        Ok(())
+    }
+}
