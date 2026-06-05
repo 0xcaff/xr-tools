@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const VITURE_VENDOR_ID: u16 = 0x35ca;
 pub const LUMA_PRODUCT_ID: u16 = 0x1131;
@@ -32,7 +32,9 @@ const VITURE_IMU_FREQUENCY_HIGH: u8 = 4;
 const CONTROL_INTERFACE_NUMBER: i32 = 1;
 const IMU_INTERFACE_NUMBER: i32 = 0;
 const READER_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
+const FIRST_POSE_TIMEOUT: Duration = Duration::from_secs(3);
 const READ_TIMEOUT_MS: i32 = 1000;
+const HID_REPORT_ID_NONE: u8 = 0;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ImuPose {
@@ -244,6 +246,23 @@ impl VitureEndpoint {
             return Err(err);
         }
 
+        if let Err(err) = wait_for_first_pose(&pose_store, FIRST_POSE_TIMEOUT) {
+            let _ = send_v1_command(
+                &control_device,
+                V1_SET_IMU_MODE_MESSAGE_ID,
+                &[VITURE_IMU_MODE_OFF],
+            );
+            reader_running.store(false, Ordering::Relaxed);
+            let _ = reader.join();
+            return Err(err).with_context(|| {
+                format!(
+                    "no pose frames from control {}, imu {}",
+                    control_endpoint.describe(),
+                    imu_endpoint.describe()
+                )
+            });
+        }
+
         Ok(Self {
             control_device,
             reader: Some(reader),
@@ -327,16 +346,20 @@ fn open_pose_stream(control_device: &HidDevice) -> Result<()> {
 
 fn send_v1_command(device: &HidDevice, message_id: u16, payload: &[u8]) -> Result<()> {
     let packet = build_v1_command(message_id, payload)?;
+    let mut report = [0u8; V1_PACKET_SIZE + 1];
+    report[0] = HID_REPORT_ID_NONE;
+    report[1..].copy_from_slice(&packet);
+
     let written = device
-        .write(&packet)
+        .write(&report)
         .with_context(|| format!("failed to write VITURE command 0x{message_id:04X}"))?;
 
-    if written == packet.len() {
+    if written == report.len() || written == packet.len() {
         Ok(())
     } else {
         bail!(
             "short HID write for VITURE command 0x{message_id:04X}: wrote {written} of {} bytes",
-            packet.len()
+            report.len()
         );
     }
 }
@@ -412,7 +435,7 @@ fn read_pose_loop(
         }
     };
 
-    let mut packet = [0u8; V1_PACKET_SIZE];
+    let mut packet = [0u8; V1_PACKET_SIZE + 1];
     while running.load(Ordering::Relaxed) {
         match device.read_timeout(&mut packet, READ_TIMEOUT_MS) {
             Ok(0) => {}
@@ -439,6 +462,12 @@ fn open_reader_device(path: &CString) -> Result<HidDevice> {
 }
 
 fn parse_v1_pose_packet(packet: &[u8]) -> Option<ImuPose> {
+    let packet = if packet.len() > V1_PACKET_SIZE && packet[0] == 0 {
+        &packet[1..]
+    } else {
+        packet
+    };
+
     if packet.len() < 18 || packet[0] != 0xff || (packet[1] & 0xfe) != 0xfc {
         return None;
     }
@@ -481,6 +510,22 @@ fn update_pose(pose_store: &Mutex<PoseStore>, pose: ImuPose) {
         store.latest = Some(pose);
         store.sample_count = store.sample_count.saturating_add(1);
     }
+}
+
+fn wait_for_first_pose(pose_store: &Mutex<PoseStore>, timeout: Duration) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if pose_store
+            .lock()
+            .map(|store| store.sample_count > 0)
+            .unwrap_or(false)
+        {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    bail!("timed out waiting for first VITURE pose frame")
 }
 
 fn matching_endpoints(api: &HidApi, product_id: u16) -> Vec<HidEndpointInfo> {
@@ -612,6 +657,14 @@ mod tests {
                 0x18, 0x00, 0x00, 0x00, 0x04,
             ],
         );
+    }
+
+    #[test]
+    fn build_v1_commands_are_written_as_sdk_sized_packets() {
+        let packet = build_v1_command(V1_SET_IMU_FREQUENCY_MESSAGE_ID, &[4]).unwrap();
+
+        assert_eq!(packet.len(), V1_PACKET_SIZE);
+        assert_eq!(&packet[..2], &V1_COMMAND_MAGIC);
     }
 
     #[test]
