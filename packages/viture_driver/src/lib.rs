@@ -8,9 +8,11 @@ use futures::Stream;
 use hidapi::{DeviceInfo, HidApi};
 use std::borrow::Cow;
 
+mod display;
 mod endpoint;
 mod imu;
 
+pub use display::{DisplayMode, GetDisplayMode, SetDisplayMode};
 pub use endpoint::UsbEndpoint;
 pub use imu::{ImuFrequency, ImuMode, ImuPose, SetImuFrequency, SetImuMode};
 
@@ -66,7 +68,9 @@ pub trait ConstRequestArgs {
 
 impl Response for () {
     fn deserialize_from(buffer: &[u8]) -> Result<Self, anyhow::Error> {
-        assert_eq!(buffer.len(), 0);
+        if !buffer.is_empty() {
+            bail!("expected empty VITURE response, got {} bytes", buffer.len());
+        }
 
         Ok(())
     }
@@ -160,5 +164,13 @@ impl UsbDevice {
 
     pub fn start_imu(self) -> Result<impl Stream<Item = ImuPose> + Send + 'static, anyhow::Error> {
         self.endpoint.start_imu()
+    }
+
+    pub fn display_mode(&self) -> Result<DisplayMode, anyhow::Error> {
+        self.endpoint.display_mode()
+    }
+
+    pub fn set_display_mode(&self, mode: DisplayMode) -> Result<DisplayMode, anyhow::Error> {
+        self.endpoint.set_display_mode(mode)
     }
 }

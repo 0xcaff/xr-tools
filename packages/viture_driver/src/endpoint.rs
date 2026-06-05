@@ -1,6 +1,6 @@
 use crate::{
-    ImuFrequency, ImuMode, ImuPose, RequestArgs, Response, SetImuFrequency, SetImuMode,
-    UsbTransaction,
+    DisplayMode, Empty, GetDisplayMode, ImuFrequency, ImuMode, ImuPose, RequestArgs, Response,
+    SetDisplayMode, SetImuFrequency, SetImuMode, UsbTransaction,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use futures::channel::mpsc;
@@ -8,10 +8,12 @@ use futures::{stream, Stream};
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use std::pin::Pin;
 use std::thread;
+use std::time::Instant;
 
 #[derive(Clone, Debug)]
 struct VitureInboundMessage {
     command: [u8; 2],
+    status: u16,
     timestamp_ms: u32,
     payload: Vec<u8>,
 }
@@ -55,6 +57,14 @@ impl UsbEndpoint {
             Pin::new(&mut rx).poll_next(cx)
         }))
     }
+
+    pub fn display_mode(&self) -> Result<DisplayMode, anyhow::Error> {
+        send_message_with_response::<GetDisplayMode>(&self.control_device, Empty)
+    }
+
+    pub fn set_display_mode(&self, mode: DisplayMode) -> Result<DisplayMode, anyhow::Error> {
+        send_message_with_response::<SetDisplayMode>(&self.control_device, mode)
+    }
 }
 
 fn send_message<'req, Txn: UsbTransaction<'req>>(
@@ -81,6 +91,90 @@ fn send_message<'req, Txn: UsbTransaction<'req>>(
     }
 
     Txn::Response::deserialize_from(&[])
+}
+
+fn send_message_with_response<'req, Txn: UsbTransaction<'req>>(
+    device: &HidDevice,
+    request: Txn::RequestArgs,
+) -> Result<Txn::Response, anyhow::Error> {
+    let mut payload = [0u8; 64];
+    let payload_len = request.serialize_into(&mut payload)?;
+    let bytes = viture_control_bytes(Txn::COMMAND_ID, &payload[..payload_len])?;
+
+    let written = device.write(&bytes).with_context(|| {
+        format!(
+            "failed to write VITURE command {}",
+            format_command(Txn::COMMAND_ID)
+        )
+    })?;
+
+    if written != bytes.len() && written != bytes.len() - 1 {
+        bail!(
+            "short HID write for VITURE command {}: wrote {written} of {} bytes",
+            format_command(Txn::COMMAND_ID),
+            bytes.len()
+        );
+    }
+
+    let message = read_response(device, Txn::COMMAND_ID)?;
+    Txn::Response::deserialize_from(&message.payload)
+}
+
+fn read_response(
+    device: &HidDevice,
+    command: [u8; 2],
+) -> Result<VitureInboundMessage, anyhow::Error> {
+    let deadline = Instant::now() + CONTROL_RESPONSE_TIMEOUT;
+    let mut packet = [0u8; 65];
+
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            bail!(
+                "timed out waiting for VITURE command {} response",
+                format_command(command)
+            );
+        }
+
+        let timeout_ms = remaining.as_millis().min(i32::MAX as u128) as i32;
+        let read = device
+            .read_timeout(&mut packet, timeout_ms)
+            .with_context(|| {
+                format!(
+                    "failed to read VITURE command {} response",
+                    format_command(command)
+                )
+            })?;
+        if read == 0 {
+            continue;
+        }
+
+        let mut message = VitureInboundMessage::parse(&packet[..read])?;
+        if message.command != command {
+            continue;
+        }
+        if message.status != 0 {
+            bail!(
+                "VITURE command {} returned status {}",
+                format_command(command),
+                message.status
+            );
+        }
+        if let Some((usb_result, payload)) = message.payload.split_first() {
+            // The SDK treats the first byte of V1 response payloads as usb_result.
+            // For display-mode get/set, successful payloads are [0x00, mode].
+            if *usb_result != 0 {
+                bail!(
+                    "VITURE command {} returned USB result {}",
+                    format_command(command),
+                    usb_result
+                );
+            }
+            message.payload = payload.to_vec();
+        }
+
+        return Ok(message);
+    }
 }
 
 fn format_command(command: [u8; 2]) -> String {
@@ -195,8 +289,11 @@ impl VitureInboundMessage {
 
         Ok(Self {
             command: body[14..16].try_into()?,
+            status: u16::from_le_bytes(body[16..18].try_into()?),
             timestamp_ms: u32::from_le_bytes(body[10..14].try_into()?),
             payload: body[payload_start..payload_end].to_vec(),
         })
     }
 }
+
+const CONTROL_RESPONSE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
