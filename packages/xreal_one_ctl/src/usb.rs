@@ -9,42 +9,42 @@ pub type UsbRunnerHandle = JoinHandle<Result<(), anyhow::Error>>;
 fn describe_model(model: &XrealOneModel<'_>) -> String {
     format!(
         "{:?} {:04x}:{:04x} {} serial={}",
-        model.kind(),
-        model.vendor_id(),
-        model.product_id(),
-        model.product_string().unwrap_or("unknown product"),
-        model.serial_number().unwrap_or("unknown")
+        model.kind,
+        model.device.vendor_id(),
+        model.device.product_id(),
+        model.device.product_string().unwrap_or("unknown product"),
+        model.device.serial_number().unwrap_or("unknown")
     )
 }
 
 fn describe_recovery_model(model: &XrealOneRecoveryModel<'_>) -> String {
     format!(
         "{:?} recovery {:04x}:{:04x} {} serial={}",
-        model.kind(),
-        model.vendor_id(),
-        model.product_id(),
-        model.product_string().unwrap_or("unknown product"),
-        model.serial_number().unwrap_or("unknown")
+        model.kind,
+        model.device.vendor_id(),
+        model.device.product_id(),
+        model.device.product_string().unwrap_or("unknown product"),
+        model.device.serial_number().unwrap_or("unknown")
     )
 }
 
 fn model_identity_key(model: &XrealOneModel<'_>) -> String {
     format!(
         "{:?}:{:04x}:{:04x}:{}",
-        model.kind(),
-        model.vendor_id(),
-        model.product_id(),
-        model.serial_number().unwrap_or("")
+        model.kind,
+        model.device.vendor_id(),
+        model.device.product_id(),
+        model.device.serial_number().unwrap_or("")
     )
 }
 
 fn recovery_model_identity_key(model: &XrealOneRecoveryModel<'_>) -> String {
     format!(
         "{:?}:{:04x}:{:04x}:{}",
-        model.kind(),
-        model.vendor_id(),
-        model.product_id(),
-        model.serial_number().unwrap_or("")
+        model.kind,
+        model.device.vendor_id(),
+        model.device.product_id(),
+        model.device.serial_number().unwrap_or("")
     )
 }
 

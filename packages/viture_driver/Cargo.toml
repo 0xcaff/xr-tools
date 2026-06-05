@@ -5,4 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.99"
+crc = "3.4.0"
+futures = "0.3.31"
 hidapi = "2.6.3"
+scopeguard = "1.2.0"
+
+[dev-dependencies]
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "time"] }

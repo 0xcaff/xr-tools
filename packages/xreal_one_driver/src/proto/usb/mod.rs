@@ -80,8 +80,8 @@ pub enum XrealOneModelKind {
 }
 
 pub struct XrealOneModel<'a> {
-    device: &'a hidapi::DeviceInfo,
-    kind: XrealOneModelKind,
+    pub device: &'a hidapi::DeviceInfo,
+    pub kind: XrealOneModelKind,
 }
 
 impl XrealOneModel<'_> {
@@ -98,31 +98,11 @@ impl XrealOneModel<'_> {
 
         Some(XrealOneModel { kind, device })
     }
-
-    pub fn kind(&self) -> XrealOneModelKind {
-        self.kind
-    }
-
-    pub fn vendor_id(&self) -> u16 {
-        self.device.vendor_id()
-    }
-
-    pub fn product_id(&self) -> u16 {
-        self.device.product_id()
-    }
-
-    pub fn product_string(&self) -> Option<&str> {
-        self.device.product_string()
-    }
-
-    pub fn serial_number(&self) -> Option<&str> {
-        self.device.serial_number()
-    }
 }
 
 pub struct XrealOneRecoveryModel<'a> {
-    device: &'a hidapi::DeviceInfo,
-    kind: XrealOneModelKind,
+    pub device: &'a hidapi::DeviceInfo,
+    pub kind: XrealOneModelKind,
 }
 
 impl XrealOneRecoveryModel<'_> {
@@ -138,26 +118,6 @@ impl XrealOneRecoveryModel<'_> {
         };
 
         Some(XrealOneRecoveryModel { kind, device })
-    }
-
-    pub fn kind(&self) -> XrealOneModelKind {
-        self.kind
-    }
-
-    pub fn vendor_id(&self) -> u16 {
-        self.device.vendor_id()
-    }
-
-    pub fn product_id(&self) -> u16 {
-        self.device.product_id()
-    }
-
-    pub fn product_string(&self) -> Option<&str> {
-        self.device.product_string()
-    }
-
-    pub fn serial_number(&self) -> Option<&str> {
-        self.device.serial_number()
     }
 }
 
