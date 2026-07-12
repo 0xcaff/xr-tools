@@ -17,6 +17,8 @@ class HardwareCode(IntEnum):
     XREAL_ONE_PRO = 6
     XREAL_ONE = 7
     XREAL_UNKNOWN_9 = 9
+    XREAL_UNKNOWN_10 = 10
+    XREAL_UNKNOWN_11 = 11
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,8 @@ PACKAGE_TARGETS = [
             HardwareCode.XREAL_ONE_PRO,
             HardwareCode.XREAL_ONE,
             HardwareCode.XREAL_UNKNOWN_9,
+            HardwareCode.XREAL_UNKNOWN_10,
+            HardwareCode.XREAL_UNKNOWN_11,
         ],
     ),
     PackageTarget(
@@ -44,6 +48,8 @@ PACKAGE_TARGETS = [
             HardwareCode.XREAL_ONE_PRO,
             HardwareCode.XREAL_ONE,
             HardwareCode.XREAL_UNKNOWN_9,
+            HardwareCode.XREAL_UNKNOWN_10,
+            HardwareCode.XREAL_UNKNOWN_11,
         ],
     ),
 ]
