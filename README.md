@@ -23,3 +23,7 @@ let the building begin!
 
 ## special thanks
 special thanks to the folks in the MakeReal XR discord for their research support. this was a team effort.
+
+## license
+
+Licensed under the [MIT License](./LICENSE).
